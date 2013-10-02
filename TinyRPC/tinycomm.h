@@ -54,6 +54,8 @@ public:
 	virtual void barrier();
 	virtual int get_num_nodes();
 	virtual int get_node_id();
+public:
+	void PollingThreadFunc();
 private:
 	int _rank;
 	int _size;
@@ -61,6 +63,7 @@ private:
 	TinyThread * _polling_thread;
 	TinyMessageQueue _received_messages;
 	int _kill_threads;
+	TinyLock _mpi_lock;
 };
 
 };
