@@ -75,9 +75,25 @@ namespace TinyRPC
             pend_ = size;
         }
 
+        void set_buf(char * buf, size_t size)
+        {
+            const_buf_ = false;
+            buf_ = buf;
+            ppos_ = size;
+            gpos_ = 0;
+            pend_ = size;
+        }
+
         size_t get_size()
         {
             return ppos_ - gpos_;
+        }
+
+        template<class T>
+        void write(const T & val)
+        {
+            static_assert(std::is_pod<T>::value, "StreamBuffer::write(T) not implemented for this type.");
+            write((char*)&val, sizeof(val));
         }
 
         void write(const char * buf, size_t size)
@@ -98,6 +114,13 @@ namespace TinyRPC
             ppos_ += size;
         }
 
+        template<class T>
+        void read(T & val)
+        {
+            static_assert(std::is_pod<T>::value, "StreamBuffer::read(T&) not implemented for this type.");
+            read(&val, sizeof(val));
+        }
+
         void read(char * buf, size_t size)
         {
             ASSERT(gpos_ + size <= ppos_,
@@ -114,6 +137,13 @@ namespace TinyRPC
                 ppos_ -= gpos_;
                 gpos_ = 0;
             }
+        }
+
+        template<class T>
+        void write_head(const T & val)
+        {
+            static_assert(std::is_pod<T>::value, "StreamBuffer::write_head(T) not implemented for this type.");
+            write_head((char*)&val, sizeof(val));
         }
 
         void write_head(const char * buf, size_t size)
