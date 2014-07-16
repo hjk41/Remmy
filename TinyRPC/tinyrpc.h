@@ -55,7 +55,7 @@ public:
     {
     }
 
-	~TinyRPCStub();
+	~TinyRPCStub()
     {
     }
 

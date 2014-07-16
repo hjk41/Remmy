@@ -88,8 +88,8 @@ namespace TinyRPC
                 return;
             }
             started_ = true;
-            //accepting_thread_ = std::thread([this](){accepting_thread_func(); });
-            //sending_thread_ = std::thread([this](){sending_thread_func(); });
+            accepting_thread_ = std::thread([this](){accepting_thread_func(); });
+            sending_thread_ = std::thread([this](){sending_thread_func(); });
             workers_.resize(NUM_WORKERS);
             for (int i = 0; i < NUM_WORKERS; i++)
             {
@@ -108,7 +108,7 @@ namespace TinyRPC
             return receive_queue_.pop();
         };
     private:
-        /*void sending_thread_func()
+        void sending_thread_func()
         {
             while (true)
             {
@@ -139,13 +139,13 @@ namespace TinyRPC
                 size_t size = streamBuf.get_size();
                 streamBuf.write_head(size);
 
-                boost::asio::async_write(*sock, boost::asio::const_buffer(streamBuf.get_buf(), streamBuf.get_size()), 
+                boost::asio::async_write(*sock, boost::asio::buffer(streamBuf.get_buf(), streamBuf.get_size()), 
                     [size, this](const boost::system::error_code & error, size_t bytes_write)
                     {ASSERT(!error && size == bytes_write, "We have not implemented error handling yet."); });
             }
         }
 
-        /*void accepting_thread_func()
+        void accepting_thread_func()
         {
             acceptor_.listen();
             while (true)
@@ -170,16 +170,14 @@ namespace TinyRPC
                     }
                     char * receive_buffer = (char*)malloc(BUFFER_SIZE);
                     auto buf = boost::asio::buffer(receive_buffer, BUFFER_SIZE);
-                    sock->async_read_some(buf, [receive_buffer]()
-                        {
-                            
-                        });
+                    sock->async_read_some(buf, [receive_buffer](const boost::system::error_code & error, size_t bytes_write)
+                        {ASSERT(!error, "We have not implemented error handling yet."); });
                 }
                 catch (exception & e)
                 {
                 }
             }
-        }*/
+        }
 
         void receive_handler(char * receive_buffer, asioSocket * sock, size_t already_received,
             const boost::system::error_code &ec, std::size_t bytes_transferred)

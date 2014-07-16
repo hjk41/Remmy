@@ -61,7 +61,22 @@ using namespace std;
 #include "streambuffer.h"
 #include "message.h"
 #include "commAsio.h"
+#include "tinyrpc.h"
 using namespace TinyRPC;
+
+class EchoProtocol : public ProtocolTemplate<int, int>
+{
+public:
+	virtual void handle_request(void * server)
+	{
+		response = request;
+	}
+
+	virtual uint32_t ID()
+	{
+		return 0;
+	}
+};
 
 int main()
 {
@@ -82,7 +97,11 @@ int main()
     //    cout << x << " ";
     //}
 
-    
+	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(new TinyCommAsio(8080));
+
+    rpc->RegisterProtocol<EchoProtocol, NULL>();
+
+
     char c;
     cin >> c;
     return 0;
