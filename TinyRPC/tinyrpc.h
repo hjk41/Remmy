@@ -43,6 +43,9 @@ typedef std::map<uint32_t, std::pair<RequestFactoryBase *, void*> > RequestFacto
 template<class EndPointT>
 class TinyRPCStub
 {
+	typedef Message<EndPointT> MessageType;
+    typedef std::shared_ptr<MessageType> MessagePtr;
+
     static const uint32_t ASYNC_RPC_CALL = 1;
     static const uint32_t SYNC_RPC_CALL = 0;
 public:
@@ -89,9 +92,9 @@ public:
         MessagePtr message;
         int64_t seq = get_new_seq_num();
 		message->set_seq(seq);
-		message->set_protocol_id(protocol->get_id());
+		message->set_protocol_id(protocol.get_id());
 		message->set_sync(SYNC_RPC_CALL);
-		message->set_stream_buffer(protocol->get_buf());
+		message->set_stream_buffer(protocol.get_buf());
 		//message->set_remote_addr();
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
@@ -111,6 +114,7 @@ public:
 		message->set_protocol_id(protocol->get_id());
 		message->set_sync(ASYNC_RPC_CALL);
 		message->set_stream_buffer(protocol->get_buf());
+		//message->set_remote_addr();
         // send message
         _comm->send(message);
         return SUCCESS;
@@ -140,57 +144,51 @@ public:
         {
             // a response
             seq = -seq;
-            // unmarshal response
+            // get response
             ProtocolBase * protocol = _sleeping_list.get_response_ptr(seq);
             if (_kill_threads)
                 return;
-            /*protocol->unmarshall_response(*buf);
-            delete buf;*/
+			protocol->get_response(message->get_stream_buffer());
+            //delete message;
             // wake up waiting thread
             _sleeping_list.signal_response(seq);
         }
-        /*else
+        else
         {
             if (_protocol_factory.find(protocol_id) == _protocol_factory.end())
             {
                 // unsupported call, register the func with the server please!
-                int remote = buf->get_remote_rank();
-                TinyLog(LOG_ERROR, "Unsupported call from %d, request ID=%d", remote, protocol_id);
-                delete buf;
+                ABORT("Unsupported call from %d, request ID=%d", message->get_remote_addr(), protocol_id);
+				//delete message;
                 return;
             }
             ProtocolBase * protocol = _protocol_factory[protocol_id].first->create_protocol();
             // a request
-            uint32_t is_async;
-            UnMarshall(*buf, is_async);
+			uint32_t is_async = message->get_sync();
             // handle request
-            protocol->unmarshall_request(*buf);
-            protocol->handle_request(_protocol_factory[protocol_id].second);
+            protocol->handle_request(message->get_stream_buffer());
             // send response if sync call
             if (!is_async)
             {
-                TinyMessageBuffer out_buffer;
-                Marshall(out_buffer, -seq);
-                Marshall(out_buffer, protocol_id);
-                protocol->marshall_response(out_buffer);
-                TinyLog(LOG_NORMAL, "responding to %d with seq=%d, protocol_id=%d\n", buf->get_remote_rank(), -seq, protocol_id);
-                _comm->send(buf->get_remote_rank(), out_buffer);
+                MessagePtr out_message;
+				out_message->set_remote_addr(message->get_remote_addr());
+				out_message->set_seq(-seq);
+				out_message->set_sync(is_async);
+				out_message->set_protocol_id(protocol_id);
+				out_message->set_stream_buffer(protocol->get_buf());
+                LOG("responding to %d with seq=%d, protocol_id=%d\n", message->get_remote_addr(), -seq, protocol_id);
+                _comm->send(out_message);
             }
-            delete buf;
+            //delete out_message;
             delete protocol;
-        }*/
+        }
     }
-
-	// inline functions
-	inline void barrier(){_comm->barrier();}
-	inline int get_num_nodes(){return _comm->get_num_nodes();}
-	inline int get_node_id(){return _comm->get_node_id();}
 
 	template<class T, void * app_server>
 	void RegisterProtocol()
 	{
 		T * t = new T;
-		uint32_t id = t->ID();
+		uint32_t id = t->get_id();
 		delete t;
 		if (_protocol_factory.find(id) != _protocol_factory.end())
 		{

@@ -67,34 +67,30 @@ using namespace TinyRPC;
 class EchoProtocol : public ProtocolTemplate<int, int>
 {
 public:
-	virtual void handle_request(void * server)
-	{
-		response = request;
-	}
-
-	virtual uint32_t get_id()
-	{
+	virtual uint32_t get_id() {
 		return 0;
 	}
 
-	virtual StreamBuffer set_buf()
+	virtual void handle_request(StreamBuffer & buf) {
+		set_buf(buf);
+	}
 };
 
 int main()
 {
-	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(new TinyCommAsio(8080));
+	TinyCommBase<asioEP> *test = new TinyCommAsio(8080);
+	/*TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(new TinyCommAsio(8080));
 
-    rpc->RegisterProtocol<EchoProtocol, NULL>();
+    /*rpc->RegisterProtocol<EchoProtocol, NULL>();
 
-	rpc->start_serving();
+	/*rpc->start_serving();
 
-	EchoProtocol p;
-	p.request = 100;
+	/*EchoProtocol p;
+	StreamBuffer s;
+	s.write(100);
+	p.set_request(s);
 	rpc->rpc_call(0, p);
-	cout << p.response << endl;
+	cout << p.response << endl;*/
 
-
-    char c;
-    cin >> c;
     return 0;
 }
