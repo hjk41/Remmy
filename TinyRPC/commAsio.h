@@ -135,11 +135,11 @@ namespace TinyRPC
                 asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
                 StreamBuffer & streamBuf = msg->get_stream_buffer();
-                // packet format: 64bit seq | 64bit protocol_id | uint32_t sync | 64bit size | contents
-				size_t fullSize = streamBuf.get_size() + 2 * sizeof(int64_t) + sizeof(uint32_t) + sizeof(size_t);
+                // packet format: int64_t seq | uint32_t protocol_id | uint32_t sync | size_t size | contents
+				size_t fullSize = streamBuf.get_size() + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
 				void *fullData = malloc(fullSize);
 				int64_t seq = msg->get_seq();
-				int64_t protocol_id = msg->get_protocol_id();
+				uint32_t protocol_id = msg->get_protocol_id();
 				uint32_t sync = msg->get_sync();
 				size_t size = streamBuf.get_size();
 				memcpy(fullData, (void*)seq, sizeof(seq));
@@ -155,7 +155,7 @@ namespace TinyRPC
 
         void accepting_thread_func()
         {
-            acceptor_.listen();
+            /*acceptor_.listen();
             while (true)
             {
                 asioSocket* sock = new asioSocket(io_service_);
@@ -184,13 +184,13 @@ namespace TinyRPC
                 catch (exception & e)
                 {
                 }
-            }
+            }*/
         }
 
         void receive_handler(char * receive_buffer, asioSocket * sock, size_t already_received,
             const boost::system::error_code &ec, std::size_t bytes_transferred)
         {
-            if (ec)
+            /*if (ec)
             {
                 WARN("receive error");
             }
@@ -213,7 +213,7 @@ namespace TinyRPC
                     char * rest = new char[size - bytes_transferred];
                     
                 }
-            }
+            }*/
         }
 
 

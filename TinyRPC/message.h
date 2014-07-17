@@ -39,11 +39,11 @@ public:
 		seq_ = seq;
 	}
 
-	int64_t get_protocol_id() {
+	uint32_t get_protocol_id() {
 		return protocol_id_;
 	}
 
-	void set_protocol_id(int64_t protocol_id) {
+	void set_protocol_id(uint32_t protocol_id) {
 		protocol_id_ = protocol_id;
 	}
 
@@ -58,8 +58,8 @@ public:
 private:
 	EndPointT remote_addr_;
     StreamBuffer buffer_;
-	int64_t seq_, protocol_id_;
-	uint32_t sync_;
+	int64_t seq_;
+	uint32_t protocol_id_, sync_;
 };
 
 

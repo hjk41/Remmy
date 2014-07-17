@@ -128,15 +128,13 @@ public:
     //		char * buf:				response of the protocol
 	void handle_message()
     {
-        MessagePtr * buf = _comm->recv();
-        /*if (_kill_threads)
+        MessagePtr message = _comm->recv();
+        if (_kill_threads)
             return;
         // get seq number, test if request or response
-        int64_t seq;
-        UnMarshall(*buf, seq);
+        int64_t seq = message->get_seq();
         // get the protocol handle
-        uint32_t protocol_id;
-        UnMarshall(*buf, protocol_id);
+        uint32_t protocol_id = message->get_protocol_id();
 
         if (seq < 0)
         {
@@ -146,12 +144,12 @@ public:
             ProtocolBase * protocol = _sleeping_list.get_response_ptr(seq);
             if (_kill_threads)
                 return;
-            protocol->unmarshall_response(*buf);
-            delete buf;
+            /*protocol->unmarshall_response(*buf);
+            delete buf;*/
             // wake up waiting thread
             _sleeping_list.signal_response(seq);
         }
-        else
+        /*else
         {
             if (_protocol_factory.find(protocol_id) == _protocol_factory.end())
             {

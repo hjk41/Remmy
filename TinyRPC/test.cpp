@@ -72,10 +72,12 @@ public:
 		response = request;
 	}
 
-	virtual uint32_t ID()
+	virtual uint32_t get_id()
 	{
 		return 0;
 	}
+
+	virtual StreamBuffer set_buf()
 };
 
 int main()
