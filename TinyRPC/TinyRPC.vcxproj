@@ -153,15 +153,14 @@
   <ItemGroup>
     <ClInclude Include="commAsio.h" />
     <ClInclude Include="concurrentqueue.h" />
-    <ClInclude Include="singleton.h" />
+    <ClInclude Include="message.h" />
+    <ClInclude Include="protocol.h" />
+    <ClInclude Include="streambuffer.h" />
     <ClInclude Include="tinycomm.h" />
     <ClInclude Include="logging.h" />
-    <ClInclude Include="serialize.h" />
-    <ClInclude Include="tinymessagequeue.h" />
     <ClInclude Include="tinythread.h" />
     <ClInclude Include="tinylock.h" />
     <ClInclude Include="tinyrpc.h" />
-    <ClInclude Include="stringstream.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test.cpp" />

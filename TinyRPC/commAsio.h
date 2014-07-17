@@ -135,11 +135,19 @@ namespace TinyRPC
                 asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
                 StreamBuffer & streamBuf = msg->get_stream_buffer();
-                // packet format: 64bit size | contents
-                size_t size = streamBuf.get_size();
-                streamBuf.write_head(size);
-
-                boost::asio::async_write(*sock, boost::asio::buffer(streamBuf.get_buf(), streamBuf.get_size()), 
+                // packet format: 64bit seq | 64bit protocol_id | uint32_t sync | 64bit size | contents
+				size_t fullSize = streamBuf.get_size() + 2 * sizeof(int64_t) + sizeof(uint32_t) + sizeof(size_t);
+				void *fullData = malloc(fullSize);
+				int64_t seq = msg->get_seq();
+				int64_t protocol_id = msg->get_protocol_id();
+				uint32_t sync = msg->get_sync();
+				size_t size = streamBuf.get_size();
+				memcpy(fullData, (void*)seq, sizeof(seq));
+				memcpy(&fullData + sizeof(seq), (void*)protocol_id, sizeof(protocol_id));
+				memcpy(&fullData + sizeof(seq) + sizeof(protocol_id), (void*)sync, sizeof(sync));
+                memcpy(&fullData + sizeof(seq) + sizeof(protocol_id) + sizeof(sync), (void*)size, sizeof(size));
+				memcpy(&fullData + sizeof(seq) + sizeof(protocol_id) + sizeof(sync) + sizeof(size), (void*)streamBuf.get_buf(), size);
+                boost::asio::async_write(*sock, boost::asio::buffer(fullData, fullSize), 
                     [size, this](const boost::system::error_code & error, size_t bytes_write)
                     {ASSERT(!error && size == bytes_write, "We have not implemented error handling yet."); });
             }

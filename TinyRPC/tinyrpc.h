@@ -9,7 +9,6 @@
 #include <assert.h>
 
 #include "protocol.h"
-#include "stringstream.h"
 #include "tinylock.h"
 #include "tinythread.h"
 #include "singleton.h"
@@ -41,7 +40,6 @@ public:
 
 typedef std::map<uint32_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
 
-
 template<class EndPointT>
 class TinyRPCStub
 {
@@ -59,12 +57,14 @@ public:
     {
     }
 
+
+
 	// start processing messages
 	void start_serving()
     {
-	    _comm->start_polling();
-	    // start threads
-	    for (int i=0; i<NUM_WORKER_THREADS; i++)
+	    _comm->start();
+		// start threads
+	    for (int i=0; i< NUM_WORKER_THREADS; i++)
 	    {
 		    TinyThread * worker = new TinyThread(WorkerFunction, this, &_kill_threads);
 		    _worker_threads.push_back(worker);
@@ -75,29 +75,27 @@ public:
     void stop_serving()
     {
         _kill_threads = true;
-        _comm->wake_all_recv_threads();
         _sleeping_list.wake_all_for_killing();
-        for (int i = 0; i<NUM_WORKER_THREADS; i++)
+        for (int i = 0; i< NUM_WORKER_THREADS; i++)
         {
             _worker_threads[i]->wait();
             delete _worker_threads[i];
         }
-        _comm->finalize();
-        _comm->delete_instance();
     }
 
 	// calls a remote function
 	uint32_t rpc_call(int who, ProtocolBase & protocol)
     {
-        TinyMessageBuffer message;
-        uint64_t seq = get_new_seq_num();
-        Marshall(message, seq);
-        Marshall(message, protocol.ID());
-        Marshall(message, SYNC_RPC_CALL);
-        protocol.marshall_request(message);
+        MessagePtr message;
+        int64_t seq = get_new_seq_num();
+		message->set_seq(seq);
+		message->set_protocol_id(protocol->get_id());
+		message->set_sync(SYNC_RPC_CALL);
+		message->set_stream_buffer(protocol->get_buf());
+		//message->set_remote_addr();
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
-        _comm->send(who, message);
+        _comm->send(message);
         // wait for signal
         _sleeping_list.wait_for_response(seq);
         if (_kill_threads)
@@ -107,14 +105,14 @@ public:
 
 	uint32_t rpc_call_async(int who, ProtocolBase & protocol)
     {
-        TinyMessageBuffer message;
-        uint64_t seq = get_new_seq_num();
-        Marshall(message, seq);
-        Marshall(message, protocol.ID());
-        Marshall(message, ASYNC_RPC_CALL);
-        protocol.marshall_request(message);
+        MessagePtr message;
+        int64_t seq = get_new_seq_num();
+		message->set_seq(seq);
+		message->set_protocol_id(protocol->get_id());
+		message->set_sync(ASYNC_RPC_CALL);
+		message->set_stream_buffer(protocol->get_buf());
         // send message
-        _comm->send(who, message);
+        _comm->send(message);
         return SUCCESS;
     }
 
@@ -130,8 +128,8 @@ public:
     //		char * buf:				response of the protocol
 	void handle_message()
     {
-        TinyMessageBuffer * buf = _comm->recv();
-        if (_kill_threads)
+        MessagePtr * buf = _comm->recv();
+        /*if (_kill_threads)
             return;
         // get seq number, test if request or response
         int64_t seq;
@@ -182,7 +180,7 @@ public:
             }
             delete buf;
             delete protocol;
-        }
+        }*/
     }
 
 	// inline functions
@@ -225,4 +223,14 @@ private:
 	bool _kill_threads;
 };
 
+	void WorkerFunction(void * rpc_ptr, void * kill_ptr)
+	{
+		TinyRPCStub<asioEP> * rpc = static_cast<TinyRPCStub<asioEP> *>(rpc_ptr);
+		bool * kill_threads = static_cast<bool *>(kill_ptr);
+		while(*kill_threads == false)
+		{
+			rpc->handle_message();
+		}
+	}	
 };
+

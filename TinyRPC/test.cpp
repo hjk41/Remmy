@@ -80,26 +80,16 @@ public:
 
 int main()
 {
-    //StreamBuffer buf;
-    //for (int i = 0; i < 1000; i++)
-    //{
-    //    buf.write((char*)&i, sizeof(i));
-    //}
-    //for (int i = 0; i < 100; i++)
-    //{
-    //    buf.write_head((char*)&i, sizeof(i));
-    //}
-    //
-    //for (int i = 0; i < 300; i++)
-    //{
-    //    int x;
-    //    buf.read((char*)&x, sizeof(x));
-    //    cout << x << " ";
-    //}
-
 	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(new TinyCommAsio(8080));
 
     rpc->RegisterProtocol<EchoProtocol, NULL>();
+
+	rpc->start_serving();
+
+	EchoProtocol p;
+	p.request = 100;
+	rpc->rpc_call(0, p);
+	cout << p.response << endl;
 
 
     char c;
