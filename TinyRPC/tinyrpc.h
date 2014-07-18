@@ -89,13 +89,14 @@ public:
 	// calls a remote function
 	uint32_t rpc_call(int who, ProtocolBase & protocol)
     {
-        MessagePtr message;
+		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
 		message->set_seq(seq);
 		message->set_protocol_id(protocol.get_id());
 		message->set_sync(SYNC_RPC_CALL);
 		message->set_stream_buffer(protocol.get_buf());
-		//message->set_remote_addr();
+		boost::asio::ip::address addr;
+		message->set_remote_addr(asioEP(addr.from_string("127.0.0.1"), TEST_PORT));
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
         _comm->send(message);
@@ -108,13 +109,13 @@ public:
 
 	uint32_t rpc_call_async(int who, ProtocolBase & protocol)
     {
-        MessagePtr message;
+		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
 		message->set_seq(seq);
 		message->set_protocol_id(protocol->get_id());
 		message->set_sync(ASYNC_RPC_CALL);
 		message->set_stream_buffer(protocol->get_buf());
-		//message->set_remote_addr();
+		message->set_remote_addr(asioEP(boost::asio::ip::tcp::v4(), TEST_PORT));
         // send message
         _comm->send(message);
         return SUCCESS;

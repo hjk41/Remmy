@@ -78,19 +78,21 @@ public:
 
 int main()
 {
-	TinyCommBase<asioEP> *test = new TinyCommAsio(8080);
-	/*TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(new TinyCommAsio(8080));
+	TinyCommBase<asioEP> *test = new TinyCommAsio(TEST_PORT);
+	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test);
 
-    /*rpc->RegisterProtocol<EchoProtocol, NULL>();
+    rpc->RegisterProtocol<EchoProtocol, NULL>();
 
-	/*rpc->start_serving();
+	rpc->start_serving();
 
-	/*EchoProtocol p;
+	cout << "start test" << endl;
+	EchoProtocol p;
 	StreamBuffer s;
 	s.write(100);
 	p.set_request(s);
+	cout << "rpc call" << endl;
 	rpc->rpc_call(0, p);
-	cout << p.response << endl;*/
+	cout << p.response << endl;
 
     return 0;
 }

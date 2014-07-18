@@ -1,6 +1,8 @@
 #pragma once 
 #include <array>
 #include <boost/asio.hpp>
+#include <boost/bind.hpp>
+#include <boost/array.hpp>
 #include <exception>
 #include <string>
 #include <thread>
@@ -27,6 +29,11 @@ namespace TinyRPC
 	typedef boost::asio::ip::tcp::acceptor asioAcceptor;
 	typedef boost::asio::io_service asioService;
 	typedef boost::asio::strand asioStrand;
+	typedef boost::asio::ip::address asioAddr;
+
+	static const int TEST_PORT = 8081;
+	static const asioAddr ADDR;
+	static const asioEP LOCAL_EP(ADDR.from_string("127.0.0.1"), TEST_PORT);
 
 
     class EPHasher
@@ -56,10 +63,10 @@ namespace TinyRPC
         typedef std::unordered_map<asioEP, SocketStrand, EPHasher> EPMap;
     public:
         TinyCommAsio(int port)
-            : acceptor_(io_service_, asioEP(boost::asio::ip::tcp::v4(), port)),
+            : acceptor_(io_service_, LOCAL_EP),
             started_(false)
         {
-        };
+		};
 
         virtual ~TinyCommAsio()
         {
@@ -134,28 +141,30 @@ namespace TinyRPC
                 // send
                 asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
-                StreamBuffer & streamBuf = msg->get_stream_buffer();
+
                 // packet format: int64_t seq | uint32_t protocol_id | uint32_t sync | size_t size | contents
-				size_t fullSize = streamBuf.get_size() + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
+				StreamBuffer & streamBuf = msg->get_stream_buffer();
+				size_t size = streamBuf.get_size();
+				size_t fullSize = size + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
 				void *fullData = malloc(fullSize);
 				int64_t seq = msg->get_seq();
 				uint32_t protocol_id = msg->get_protocol_id();
 				uint32_t sync = msg->get_sync();
-				size_t size = streamBuf.get_size();
-				memcpy(fullData, (void*)seq, sizeof(seq));
-				memcpy(&fullData + sizeof(seq), (void*)protocol_id, sizeof(protocol_id));
-				memcpy(&fullData + sizeof(seq) + sizeof(protocol_id), (void*)sync, sizeof(sync));
-                memcpy(&fullData + sizeof(seq) + sizeof(protocol_id) + sizeof(sync), (void*)size, sizeof(size));
+				memcpy(fullData, (void*)&seq, sizeof(seq));
+				memcpy(&fullData + sizeof(seq), (void*)&protocol_id, sizeof(protocol_id));
+				memcpy(&fullData + sizeof(seq) + sizeof(protocol_id), (void*)&sync, sizeof(sync));
+                memcpy(&fullData + sizeof(seq) + sizeof(protocol_id) + sizeof(sync), (void*)&size, sizeof(size));
 				memcpy(&fullData + sizeof(seq) + sizeof(protocol_id) + sizeof(sync) + sizeof(size), (void*)streamBuf.get_buf(), size);
-                boost::asio::async_write(*sock, boost::asio::buffer(fullData, fullSize), 
+				boost::asio::async_write(*sock, boost::asio::buffer(fullData, fullSize), 
                     [size, this](const boost::system::error_code & error, size_t bytes_write)
                     {ASSERT(!error && size == bytes_write, "We have not implemented error handling yet."); });
+				//free(fullData);
             }
         }
 
         void accepting_thread_func()
         {
-            /*acceptor_.listen();
+            acceptor_.listen();
             while (true)
             {
                 asioSocket* sock = new asioSocket(io_service_);
@@ -176,44 +185,41 @@ namespace TinyRPC
                         WARN("socket reconnected? %s:%d", remoteEP.address().to_string(), remoteEP.port());
                         it->second = SocketStrand(sock, strand);
                     }
-                    char * receive_buffer = (char*)malloc(BUFFER_SIZE);
-                    auto buf = boost::asio::buffer(receive_buffer, BUFFER_SIZE);
-                    sock->async_read_some(buf, [receive_buffer](const boost::system::error_code & error, size_t bytes_write)
-                        {ASSERT(!error, "We have not implemented error handling yet."); });
-                }
+                    /*char * receive_buffer = (char*)malloc(BUFFER_SIZE);
+					memset(receive_buffer, '0', BUFFER_SIZE);
+					cout << receive_buffer[0] << endl;*/
+					boost::array<char, 8192> receive_buffer;
+					receive_buffer.data()[0]='\0';
+					//sock->async_read_some(buf, [sock](const boost::system::error_code & ec, std::size_t bytes_write){receive_handler(ec, bytes_write);});
+                    boost::asio::async_read(*sock, boost::asio::buffer(receive_buffer, 1), boost::bind(&TinyCommAsio::receive_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+					//sock->async_read_some(boost::asio::buffer(receive_buffer), boost::bind(&TinyCommAsio::receive_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+					/*for (int i = 0; i < 25; ++i)
+						cout << receive_buffer[i] << endl;*/
+				}
                 catch (exception & e)
                 {
+					cout << e.what() << endl;
                 }
-            }*/
+            }
         }
 
-        void receive_handler(char * receive_buffer, asioSocket * sock, size_t already_received,
-            const boost::system::error_code &ec, std::size_t bytes_transferred)
+		void receive_handler(const boost::system::error_code& ec, std::size_t bytes_transferred, asioSocket *sock)
         {
-            /*if (ec)
+            if (ec)
             {
                 WARN("receive error");
             }
             else
             {
-                if (already_received + bytes_transferred < sizeof(size_t))
-                {
-
-                }
-                // packet format: 64bit size | contents
-                MessagePtr msg = make_shared<MessageType>();
-                StreamBuffer & streamBuf = msg->get_stream_buffer();
-                streamBuf.set_buf(receive_buffer, bytes_transferred);
-                size_t size;
-                streamBuf.read(size);
-                bytes_transferred -= sizeof(size);
-                if (bytes_transferred < size)
-                {
-                    // we haven't received the whole package, wait for the rest
-                    char * rest = new char[size - bytes_transferred];
-                    
-                }
-            }*/
+				if (bytes_transferred > 0) {
+					//sock->async_read_some
+				}
+				else {
+				
+				}
+				cout << bytes_transferred << endl;
+				cout << sock->remote_endpoint().address().to_string() << endl;
+            }
         }
 
 
@@ -224,7 +230,7 @@ namespace TinyRPC
         EPMap receiving_sockets_;
 
         asioService io_service_;
-        asioAcceptor acceptor_;
+		asioAcceptor acceptor_;
 
         std::thread sending_thread_;
         std::thread accepting_thread_;
