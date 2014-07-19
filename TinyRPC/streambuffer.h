@@ -168,6 +168,18 @@ namespace TinyRPC
             memcpy(buf_ + gpos_, buf, size);
         }
 
+		void clear() 
+		{
+			const_buf_ = false;
+            ppos_ = 0;
+            gpos_ = 0;
+		}
+
+		void reset()
+		{
+			gpos_ = 0;
+		}
+
     private:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }

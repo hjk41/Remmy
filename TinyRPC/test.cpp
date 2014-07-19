@@ -72,7 +72,8 @@ public:
 	}
 
 	virtual void handle_request(StreamBuffer & buf) {
-		set_buf(buf);
+		buf_.clear();
+		buf_.write(buf.get_buf(), buf.get_size());
 	}
 };
 
@@ -87,12 +88,12 @@ int main()
 
 	cout << "start test" << endl;
 	EchoProtocol p;
-	StreamBuffer s;
-	s.write(100);
-	p.set_request(s);
+	p.request = 1000;
+	cout << "the request = " << p.request << endl;
+	p.set_request(p.request);
 	cout << "rpc call" << endl;
 	rpc->rpc_call(0, p);
-	cout << p.response << endl;
+	cout << "the response = " << p.response << endl;
 
     return 0;
 }

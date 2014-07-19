@@ -8,23 +8,18 @@ namespace TinyRPC
 {
     class ProtocolBase
     {
-		StreamBuffer buf_;
     public:
         virtual uint32_t get_id() = 0;
-		
-		void set_buf(StreamBuffer & buf) {
-			buf_.swap(buf);
-		}
 		
 		StreamBuffer & get_buf() {
 			return buf_;
 		}
 
-		virtual void set_request(StreamBuffer & buf) = 0;
-
 		virtual void get_response(StreamBuffer & buf) = 0;
 
 		virtual void handle_request(StreamBuffer & buf) = 0;
+
+		StreamBuffer buf_;
     };
 
     template<class RequestT, class ResponseT>
@@ -34,11 +29,12 @@ namespace TinyRPC
 		RequestT request;
 		ResponseT response;
 
-		virtual void set_request(StreamBuffer & buf) {
-			set_buf(buf);
+		void set_request(RequestT &req) {
+			buf_.clear();
+			buf_.write(req);
 		}
 		
-		virtual void get_response(StreamBuffer & buf) {
+		void get_response(StreamBuffer & buf) {
 			buf.read(response);
 		}
     };

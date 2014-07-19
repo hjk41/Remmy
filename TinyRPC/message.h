@@ -28,7 +28,8 @@ public:
 
     void set_stream_buffer(StreamBuffer & buf)
     {
-        buffer_.swap(buf);
+		buffer_.clear();
+		buffer_.write(buf.get_buf(), buf.get_size());
     }
 
 	int64_t get_seq() {

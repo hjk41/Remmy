@@ -143,6 +143,7 @@ public:
 
         if (seq < 0)
         {
+			cout << "get a response" << endl;
             // a response
             seq = -seq;
             // get response
@@ -156,6 +157,7 @@ public:
         }
         else
         {
+			cout << "get a request" << endl;
             if (_protocol_factory.find(protocol_id) == _protocol_factory.end())
             {
                 // unsupported call, register the func with the server please!
@@ -171,14 +173,14 @@ public:
             // send response if sync call
             if (!is_async)
             {
-                MessagePtr out_message;
-				out_message->set_remote_addr(message->get_remote_addr());
+                MessagePtr out_message(new MessageType);
 				out_message->set_seq(-seq);
 				out_message->set_sync(is_async);
 				out_message->set_protocol_id(protocol_id);
 				out_message->set_stream_buffer(protocol->get_buf());
-                LOG("responding to %d with seq=%d, protocol_id=%d\n", message->get_remote_addr(), -seq, protocol_id);
-                _comm->send(out_message);
+				out_message->set_remote_addr(message->get_remote_addr());
+                LOG("responding to %s:%d with seq=%d, protocol_id=%d\n", message->get_remote_addr().address(), message->get_remote_addr().port(), -seq, protocol_id);
+				_comm->send(out_message);
             }
             //delete out_message;
             delete protocol;
