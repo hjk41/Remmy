@@ -74,13 +74,7 @@ namespace TinyRPC
             // TODO: we might want to use the sending thread and receiving thread to 
             // close the sockets: there is still very low probability that we might have
             // a data race here.
-            for (auto & it : sending_sockets_)
-            {
-                it.second.socket->close();
-                delete it.second.socket;
-                delete it.second.strand;
-            }
-            for (auto & it : receiving_sockets_)
+            for (auto & it : sockets_)
             {
                 it.second.socket->close();
                 delete it.second.socket;
@@ -126,9 +120,10 @@ namespace TinyRPC
             while (true)
             {
                 MessagePtr msg = send_queue_.pop();
+
                 // get socket
-                EPMap::iterator it = sending_sockets_.find(msg->get_remote_addr());
-                if (it == sending_sockets_.end())
+                EPMap::iterator it = sockets_.find(msg->get_remote_addr());
+                if (it == sockets_.end())
                 {
                     asioEP remote = msg->get_remote_addr();
                     asioSocket* sock = new asioSocket(io_service_);
@@ -136,7 +131,7 @@ namespace TinyRPC
                     try
                     {
                         sock->connect(remote);
-                        it = sending_sockets_.insert(it, std::make_pair(remote, SocketStrand(sock, strand)));
+                        it = sockets_.insert(it, std::make_pair(remote, SocketStrand(sock, strand)));
 						LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
                     }
                     catch (std::exception & e)
@@ -147,6 +142,7 @@ namespace TinyRPC
                 }
 				asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
+
 				// send
                 // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
 				StreamBuffer & streamBuf = msg->get_stream_buffer();
@@ -198,11 +194,11 @@ namespace TinyRPC
                     acceptor_.accept(*sock);
 					// insert into the receiving sockets
                     asioEP & remoteEP = sock->remote_endpoint();
-					EPMap::iterator it = receiving_sockets_.find(remoteEP);
-                    if (it == receiving_sockets_.end())
+					EPMap::iterator it = sockets_.find(remoteEP);
+                    if (it == sockets_.end())
                     {
                         LOG("adding new receiving socket: %s:%d", remoteEP.address().to_string(), remoteEP.port());
-                        it = receiving_sockets_.insert(it, std::make_pair(remoteEP, SocketStrand(sock, strand)));
+                        it = sockets_.insert(it, std::make_pair(remoteEP, SocketStrand(sock, strand)));
                     }
                     else
                     {
@@ -271,8 +267,11 @@ namespace TinyRPC
         bool started_;
         ConcurrentQueue<MessagePtr> send_queue_;
         ConcurrentQueue<MessagePtr> receive_queue_;
-        EPMap sending_sockets_;
+        /*
+		EPMap sending_sockets_;
         EPMap receiving_sockets_;
+		*/
+		EPMap sockets_;
 
 		asioService io_service_;
 		asioAcceptor acceptor_;
