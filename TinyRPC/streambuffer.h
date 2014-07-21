@@ -171,11 +171,10 @@ namespace TinyRPC
 		void clear() 
 		{
 			const_buf_ = false;
-            ppos_ = 0;
-            gpos_ = 0;
+            ppos_ = gpos_;
 		}
 
-		void reset()
+		void reset_gpos()
 		{
 			gpos_ = 0;
 		}

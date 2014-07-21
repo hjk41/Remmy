@@ -59,9 +59,7 @@ public:
 	~TinyRPCStub()
     {
     }
-
-
-
+    
 	// start processing messages
 	void start_serving()
     {

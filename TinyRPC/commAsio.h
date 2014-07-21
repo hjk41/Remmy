@@ -31,11 +31,7 @@ namespace TinyRPC
 	typedef boost::asio::strand asioStrand;
 	typedef boost::asio::ip::address asioAddr;
 
-	static const int TEST_PORT = 8081;
-	static const asioAddr ADDR;
-	static const asioEP LOCAL_EP(ADDR.from_string("127.0.0.1"), TEST_PORT);
-	static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
-
+	//static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
 
     class EPHasher
     {
@@ -64,7 +60,7 @@ namespace TinyRPC
         typedef std::unordered_map<asioEP, SocketStrand, EPHasher> EPMap;
     public:
         TinyCommAsio(int port)
-			: acceptor_(io_service_, LOCAL_EP), //asioEP(boost::asio::ip::tcp::v4(), TEST_PORT)),
+            : acceptor_(io_service_, asioEP(boost::asio::ip::tcp::v4(), port)),
             started_(false)
         {
 		};
@@ -102,7 +98,11 @@ namespace TinyRPC
             workers_.resize(NUM_WORKERS);
             for (int i = 0; i < NUM_WORKERS; i++)
             {
-                workers_[i] = std::thread([this](){boost::asio::io_service::work work(io_service_); io_service_.run(); });
+                workers_[i] = std::thread([this]()
+                    {
+                    boost::asio::io_service::work work(io_service_); 
+                    io_service_.run(); 
+                });
             }
         };
 
@@ -250,7 +250,7 @@ namespace TinyRPC
 					if (data.get_size() >= HEADER_SIZE) {
 						size_t size = 0;
 						data.read(size);
-						data.reset();
+						data.reset_gpos();
 						// read has finished
 						if (data.get_size() == size) {
 							// packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents

@@ -25,6 +25,7 @@ namespace TinyRPC
     template<class RequestT, class ResponseT>
     class ProtocolTemplate : public ProtocolBase
     {
+        static_assert(std::is_pod<RequestT>::value && std::is_pod<ResponseT>::value);
     public:
 		RequestT request;
 		ResponseT response;
