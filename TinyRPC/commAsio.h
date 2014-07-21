@@ -31,7 +31,11 @@ namespace TinyRPC
 	typedef boost::asio::strand asioStrand;
 	typedef boost::asio::ip::address asioAddr;
 
-	//static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
+	//Just For Test
+	static const int TEST_PORT = 8081;
+	static const asioAddr ADDR;
+	static const asioEP LOCAL_EP(ADDR.from_string("127.0.0.1"), TEST_PORT);
+	static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
 
     class EPHasher
     {
@@ -123,8 +127,7 @@ namespace TinyRPC
             {
                 MessagePtr msg = send_queue_.pop();
                 // get socket
-				/*
-                EPMap::iterator it = find(msg->get_remote_addr());
+                EPMap::iterator it = sending_sockets_.find(msg->get_remote_addr());
                 if (it == sending_sockets_.end())
                 {
                     asioEP remote = msg->get_remote_addr();
@@ -144,22 +147,7 @@ namespace TinyRPC
                 }
 				asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
-				*/
 				// send
-				asioEP remote = msg->get_remote_addr();
-                asioSocket* sock = new asioSocket(io_service_);
-                asioStrand* strand = new asioStrand(io_service_);
-                try
-                {
-					sock->connect(remote);
-					LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
-				}
-                catch (std::exception & e)
-                {
-					WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string(), remote.port(), e.what());
-                    continue;
-				}
-
                 // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
 				StreamBuffer & streamBuf = msg->get_stream_buffer();
 				size_t size = streamBuf.get_size();
@@ -194,7 +182,6 @@ namespace TinyRPC
             else
             {
 				cout << "write finished" << endl;
-				sock->close();
 				free(send_buffer);
             }
         }
@@ -209,10 +196,7 @@ namespace TinyRPC
                 try
                 {
                     acceptor_.accept(*sock);
-					asioEP & remoteEP = sock->remote_endpoint();
-					LOG("adding new receiving socket: %s:%d", remoteEP.address().to_string(), remoteEP.port());
 					// insert into the receiving sockets
-					/*
                     asioEP & remoteEP = sock->remote_endpoint();
 					EPMap::iterator it = receiving_sockets_.find(remoteEP);
                     if (it == receiving_sockets_.end())
@@ -225,7 +209,7 @@ namespace TinyRPC
                         WARN("socket reconnected? %s:%d", remoteEP.address().to_string(), remoteEP.port());
                         it->second = SocketStrand(sock, strand);
                     }
-					*/
+
 					data.clear();
 					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
 				}
@@ -247,7 +231,7 @@ namespace TinyRPC
 				if (bytes_transferred > 0) {
 					cout << "recv " << bytes_transferred << " bytes" << endl;
 					data.write(receive_buffer, bytes_transferred);
-					if (data.get_size() >= HEADER_SIZE) {
+					if (data.get_size() >= sizeof(size_t)) {
 						size_t size = 0;
 						data.read(size);
 						data.reset_gpos();
@@ -271,15 +255,15 @@ namespace TinyRPC
 							message->get_stream_buffer().clear();
 							message->get_stream_buffer().write(data.get_buf() + HEADER_SIZE, size);
 							message->set_remote_addr(LOCAL_EP);
-							sock->close();
 							receive_queue_.push(message);
-							return;
+							data.clear();
 						}
 					}
-					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
 				}
 				else {
+					data.clear();
 				}
+				sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
             }
         }
 
