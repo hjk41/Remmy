@@ -41,6 +41,12 @@ namespace TinyRPC
             return rv;
         }
 
+		size_t size()
+		{
+			std::lock_guard<std::mutex> lk(m_mutex);
+			return m_queue.size();
+		}
+
     private:
         std::list<T> m_queue;
         std::mutex m_mutex;

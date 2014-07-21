@@ -68,6 +68,7 @@ namespace TinyRPC
     }
 
 #undef LOGGING_COMPONENT
+
 #define LOGGING_COMPONENT "common"
 
 #define LOG(format, ...) \

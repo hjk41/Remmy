@@ -121,7 +121,7 @@ namespace TinyRPC
             read(&val, sizeof(val));
         }
 
-        void read(char * buf, size_t size)
+        void read(void * buf, size_t size)
         {
             ASSERT(gpos_ + size <= ppos_,
                 "reading beyond the array: required size = %d, actual size = %d", size, ppos_ - gpos_);
@@ -167,6 +167,18 @@ namespace TinyRPC
             gpos_ -= size;
             memcpy(buf_ + gpos_, buf, size);
         }
+
+		void clear() 
+		{
+			const_buf_ = false;
+            ppos_ = 0;
+            gpos_ = 0;
+		}
+
+		void reset()
+		{
+			gpos_ = 0;
+		}
 
     private:
         StreamBuffer(const StreamBuffer & rhs){};

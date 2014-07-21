@@ -1,6 +1,8 @@
 #pragma once 
 #include <array>
 #include <boost/asio.hpp>
+#include <boost/bind.hpp>
+#include <boost/array.hpp>
 #include <exception>
 #include <string>
 #include <thread>
@@ -16,11 +18,24 @@
 
 namespace TinyRPC
 {
-    using asioEP = boost::asio::ip::tcp::endpoint;
+    /*using asioEP = boost::asio::ip::tcp::endpoint;
     using asioSocket = boost::asio::ip::tcp::socket;
     using asioAcceptor = boost::asio::ip::tcp::acceptor;
     using asioService = boost::asio::io_service;
-    using asioStrand = boost::asio::strand;
+    using asioStrand = boost::asio::strand;*/
+
+	typedef boost::asio::ip::tcp::endpoint asioEP;
+	typedef boost::asio::ip::tcp::socket asioSocket;
+	typedef boost::asio::ip::tcp::acceptor asioAcceptor;
+	typedef boost::asio::io_service asioService;
+	typedef boost::asio::strand asioStrand;
+	typedef boost::asio::ip::address asioAddr;
+
+	static const int TEST_PORT = 8081;
+	static const asioAddr ADDR;
+	static const asioEP LOCAL_EP(ADDR.from_string("127.0.0.1"), TEST_PORT);
+	static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
+
 
     class EPHasher
     {
@@ -31,7 +46,7 @@ namespace TinyRPC
         }
     };
 
-    class TinyCommAsio : public TinyCommBase<asioEP>
+	class TinyCommAsio : public TinyCommBase<asioEP>
     {
         struct SocketStrand
         {
@@ -49,10 +64,10 @@ namespace TinyRPC
         typedef std::unordered_map<asioEP, SocketStrand, EPHasher> EPMap;
     public:
         TinyCommAsio(int port)
-            : acceptor_(io_service_, asioEP(boost::asio::ip::tcp::v4(), port)),
+			: acceptor_(io_service_, LOCAL_EP), //asioEP(boost::asio::ip::tcp::v4(), TEST_PORT)),
             started_(false)
         {
-        };
+		};
 
         virtual ~TinyCommAsio()
         {
@@ -81,12 +96,13 @@ namespace TinyRPC
                 return;
             }
             started_ = true;
-            accepting_thread_ = std::thread([this](){accepting_thread_func(); });
+			receive_buffer = (char *)malloc(BUFFER_SIZE);
+			accepting_thread_ = std::thread([this](){accepting_thread_func(); });
             sending_thread_ = std::thread([this](){sending_thread_func(); });
             workers_.resize(NUM_WORKERS);
             for (int i = 0; i < NUM_WORKERS; i++)
             {
-                workers_[i] = std::thread([this](){io_service_.run(); });
+                workers_[i] = std::thread([this](){boost::asio::io_service::work work(io_service_); io_service_.run(); });
             }
         };
 
@@ -107,7 +123,8 @@ namespace TinyRPC
             {
                 MessagePtr msg = send_queue_.pop();
                 // get socket
-                EPMap::iterator it = sending_sockets_.find(msg->get_remote_addr());
+				/*
+                EPMap::iterator it = find(msg->get_remote_addr());
                 if (it == sending_sockets_.end())
                 {
                     asioEP remote = msg->get_remote_addr();
@@ -117,6 +134,7 @@ namespace TinyRPC
                     {
                         sock->connect(remote);
                         it = sending_sockets_.insert(it, std::make_pair(remote, SocketStrand(sock, strand)));
+						LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
                     }
                     catch (std::exception & e)
                     {
@@ -124,17 +142,60 @@ namespace TinyRPC
                         continue;
                     }
                 }
-                // send
-                asioSocket* sock = it->second.socket;
+				asioSocket* sock = it->second.socket;
                 asioStrand* strand = it->second.strand;
-                StreamBuffer & streamBuf = msg->get_stream_buffer();
-                // packet format: 64bit size | contents
-                size_t size = streamBuf.get_size();
-                streamBuf.write_head(size);
+				*/
+				// send
+				asioEP remote = msg->get_remote_addr();
+                asioSocket* sock = new asioSocket(io_service_);
+                asioStrand* strand = new asioStrand(io_service_);
+                try
+                {
+					sock->connect(remote);
+					LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
+				}
+                catch (std::exception & e)
+                {
+					WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string(), remote.port(), e.what());
+                    continue;
+				}
 
-                boost::asio::async_write(*sock, boost::asio::const_buffer(streamBuf.get_buf(), streamBuf.get_size()), 
-                    [size, this](const boost::system::error_code & error, size_t bytes_write)
-                    {ASSERT(!error && size == bytes_write, "We have not implemented error handling yet."); });
+                // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
+				StreamBuffer & streamBuf = msg->get_stream_buffer();
+				size_t size = streamBuf.get_size();
+				size_t fullSize = size + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
+				send_buffer = (char *)malloc(fullSize);
+				int64_t seq = msg->get_seq();
+				uint32_t protocol_id = msg->get_protocol_id();
+				uint32_t sync = msg->get_sync();
+				memcpy(send_buffer, (void*)&fullSize, sizeof(fullSize));
+				memcpy(send_buffer + sizeof(fullSize), (void*)&seq, sizeof(seq));
+                memcpy(send_buffer + sizeof(fullSize) + sizeof(seq), (void*)&protocol_id, sizeof(protocol_id));
+				memcpy(send_buffer + sizeof(fullSize) + sizeof(seq) + sizeof(protocol_id), (void*)&sync, sizeof(sync));
+				memcpy(send_buffer + sizeof(fullSize) + sizeof(seq) + sizeof(protocol_id) + sizeof(sync), (void*)streamBuf.get_buf(), size);
+
+				try
+				{
+					boost::asio::async_write(*sock, boost::asio::buffer(send_buffer, fullSize), boost::bind(&TinyCommAsio::handle_write, this, boost::asio::placeholders::error, sock));
+				}
+				catch (std::exception & e)
+                {
+					cout << e.what() << endl; 
+				}
+			}
+        }
+
+		void handle_write(const boost::system::error_code& ec, asioSocket *sock)
+        {
+            if (ec)
+            {
+                WARN("write error");
+            }
+            else
+            {
+				cout << "write finished" << endl;
+				sock->close();
+				free(send_buffer);
             }
         }
 
@@ -143,62 +204,82 @@ namespace TinyRPC
             acceptor_.listen();
             while (true)
             {
-                asioSocket * sock = new asioSocket(io_service_);
+                asioSocket* sock = new asioSocket(io_service_);
+				asioStrand* strand = new asioStrand(io_service_);
                 try
                 {
                     acceptor_.accept(*sock);
-                    // insert into the receiving sockets
+					asioEP & remoteEP = sock->remote_endpoint();
+					LOG("adding new receiving socket: %s:%d", remoteEP.address().to_string(), remoteEP.port());
+					// insert into the receiving sockets
+					/*
                     asioEP & remoteEP = sock->remote_endpoint();
-                    EPMap::iterator it = receiving_sockets_.find(remoteEP);
+					EPMap::iterator it = receiving_sockets_.find(remoteEP);
                     if (it == receiving_sockets_.end())
                     {
                         LOG("adding new receiving socket: %s:%d", remoteEP.address().to_string(), remoteEP.port());
-                        it = receiving_sockets_.insert(it, std::make_pair(remoteEP, sock));
+                        it = receiving_sockets_.insert(it, std::make_pair(remoteEP, SocketStrand(sock, strand)));
                     }
                     else
                     {
                         WARN("socket reconnected? %s:%d", remoteEP.address().to_string(), remoteEP.port());
-                        it->second = sock;
+                        it->second = SocketStrand(sock, strand);
                     }
-                    char * receive_buffer = (char*)malloc(BUFFER_SIZE);
-                    auto buf = boost::asio::buffer(receive_buffer, BUFFER_SIZE);
-                    sock->async_read_some(buf, [receive_buffer]()
-                        {
-                            
-                        });
-                }
+					*/
+					data.clear();
+					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+				}
                 catch (exception & e)
                 {
+					cout << e.what() << endl;
                 }
             }
         }
 
-        void receive_handler(char * receive_buffer, asioSocket * sock, size_t already_received,
-            const boost::system::error_code &ec, std::size_t bytes_transferred)
+		void handle_read(const boost::system::error_code& ec, std::size_t bytes_transferred, asioSocket *sock)
         {
             if (ec)
             {
-                WARN("receive error");
+                WARN("read error");
             }
             else
             {
-                if (already_received + bytes_transferred < sizeof(size_t))
-                {
-
-                }
-                // packet format: 64bit size | contents
-                MessagePtr msg = make_shared<MessageType>();
-                StreamBuffer & streamBuf = msg->get_stream_buffer();
-                streamBuf.set_buf(receive_buffer, bytes_transferred);
-                size_t size;
-                streamBuf.read(size);
-                bytes_transferred -= sizeof(size);
-                if (bytes_transferred < size)
-                {
-                    // we haven't received the whole package, wait for the rest
-                    char * rest = new char[size - bytes_transferred];
-                    
-                }
+				if (bytes_transferred > 0) {
+					cout << "recv " << bytes_transferred << " bytes" << endl;
+					data.write(receive_buffer, bytes_transferred);
+					if (data.get_size() >= HEADER_SIZE) {
+						size_t size = 0;
+						data.read(size);
+						data.reset();
+						// read has finished
+						if (data.get_size() == size) {
+							// packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
+							data.read(size);
+							size -= HEADER_SIZE;
+							int64_t seq = 0;
+							data.read(seq);
+							uint32_t protocol_id = 0;
+							data.read(protocol_id);
+							uint32_t sync = 0;
+							data.read(sync);
+							StreamBuffer buf;
+							buf.write(data.get_buf() + HEADER_SIZE, size);
+							MessagePtr message(new MessageType);
+							message->set_seq(seq);
+							message->set_protocol_id(protocol_id);
+							message->set_sync(sync);
+							message->get_stream_buffer().clear();
+							message->get_stream_buffer().write(data.get_buf() + HEADER_SIZE, size);
+							message->set_remote_addr(LOCAL_EP);
+							sock->close();
+							receive_queue_.push(message);
+							return;
+						}
+					}
+					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+				}
+				else {
+				}
             }
         }
 
@@ -209,11 +290,15 @@ namespace TinyRPC
         EPMap sending_sockets_;
         EPMap receiving_sockets_;
 
-        asioService io_service_;
-        asioAcceptor acceptor_;
+		asioService io_service_;
+		asioAcceptor acceptor_;
 
         std::thread sending_thread_;
         std::thread accepting_thread_;
         std::vector<std::thread> workers_;
+
+		char *send_buffer;
+		char *receive_buffer;
+		StreamBuffer data;
     };
 };
