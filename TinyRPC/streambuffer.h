@@ -179,7 +179,7 @@ namespace TinyRPC
 			gpos_ = 0;
 		}
 
-    private:
+	private:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }
 
