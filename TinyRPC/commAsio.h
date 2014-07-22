@@ -25,9 +25,6 @@ namespace TinyRPC
 	typedef boost::asio::strand asioStrand;
 	typedef boost::asio::ip::address asioAddr;
 
-	//Just For Test
-	static const size_t HEADER_SIZE = sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
-
     class EPHasher
     {
     public:
@@ -229,22 +226,26 @@ namespace TinyRPC
 						// read has finished
 						if (data.get_size() == size) {
 							// packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
+							int header_size = 0;
 							data.read(size);
-							size -= HEADER_SIZE;
+							header_size += sizeof(size);
 							int64_t seq = 0;
 							data.read(seq);
+							header_size += sizeof(seq);
 							uint32_t protocol_id = 0;
 							data.read(protocol_id);
+							header_size += sizeof(protocol_id);
 							uint32_t sync = 0;
 							data.read(sync);
+							header_size += sizeof(sync);
 							StreamBuffer buf;
-							buf.write(data.get_buf() + HEADER_SIZE, size);
+							buf.write(data.get_buf() + header_size, size - header_size);
 							MessagePtr message(new MessageType);
 							message->set_seq(seq);
 							message->set_protocol_id(protocol_id);
 							message->set_sync(sync);
 							message->get_stream_buffer().clear();
-							message->get_stream_buffer().write(data.get_buf() + HEADER_SIZE, size);
+							message->get_stream_buffer().write(data.get_buf() + header_size, size - header_size);
 							message->set_remote_addr(sock->remote_endpoint());
 							receive_queue_.push(message);
 							data.clear();
