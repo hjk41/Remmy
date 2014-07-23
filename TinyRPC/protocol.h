@@ -31,7 +31,7 @@ namespace TinyRPC
 		ResponseT response;
 
 		void set_request(RequestT &req) {
-			buf_.clear();
+			buf_.clear(true);
 			buf_.write(req);
 		}
 		

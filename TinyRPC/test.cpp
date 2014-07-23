@@ -17,12 +17,12 @@ public:
 	}
 
 	virtual void handle_request(StreamBuffer & buf) {
-		buf_.clear();
+		buf_.clear(true);
 		buf_.write(buf.get_buf(), buf.get_size());
 	}
 };
 
-const int TEST_PORT = 8081;
+const int TEST_PORT = 8082;
 
 int main()
 {
@@ -54,7 +54,7 @@ int main()
 		cout << "the response = " << p.response << endl;
 	}
 
-	rpc->barrier();
+	Sleep(10000);
 
     return 0;
 }

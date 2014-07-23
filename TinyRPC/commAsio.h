@@ -83,7 +83,7 @@ namespace TinyRPC
             for (int i = 0; i < NUM_WORKERS; i++)
             {
                 workers_[i] = std::thread([this]()
-                    {
+				{
                     boost::asio::io_service::work work(io_service_); 
                     io_service_.run(); 
                 });
@@ -125,29 +125,35 @@ namespace TinyRPC
                         continue;
                     }
 					data_[remote] = new StreamBuffer();
+					send_buffers_[remote] = NULL;
 					recv_buffers_[remote] = (char *)malloc(BUFFER_SIZE);
 					char *receive_buffer = recv_buffers_[remote];
 					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
                 }
 
 				asioSocket* sock = it->second;
+				char *send_buffer = send_buffers_[remote];
+				while (send_buffer) 
+					Sleep(10);
 				StreamBuffer & data = *data_[remote];
-				data.clear();
+				data.clear(true);
 				
 				// send
                 // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
 				StreamBuffer & streamBuf = msg->get_stream_buffer();
 				size_t size = streamBuf.get_size();
 				size_t fullSize = size + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
-				send_buffer = (char *)malloc(fullSize);
 				int64_t seq = msg->get_seq();
 				uint32_t protocol_id = msg->get_protocol_id();
 				uint32_t sync = msg->get_sync();
-				memcpy(send_buffer, (void*)&fullSize, sizeof(fullSize));
-				memcpy(send_buffer + sizeof(fullSize), (void*)&seq, sizeof(seq));
-                memcpy(send_buffer + sizeof(fullSize) + sizeof(seq), (void*)&protocol_id, sizeof(protocol_id));
-				memcpy(send_buffer + sizeof(fullSize) + sizeof(seq) + sizeof(protocol_id), (void*)&sync, sizeof(sync));
-				memcpy(send_buffer + sizeof(fullSize) + sizeof(seq) + sizeof(protocol_id) + sizeof(sync), (void*)streamBuf.get_buf(), size);
+
+				streamBuf.write_head(sync);
+				streamBuf.write_head(protocol_id);
+				streamBuf.write_head(seq);
+				streamBuf.write_head(fullSize);
+
+				send_buffer = streamBuf.get_buf();
+				send_buffers_[remote] = send_buffer;
 
 				boost::asio::async_write(*sock, boost::asio::buffer(send_buffer, fullSize), boost::bind(&TinyCommAsio::handle_write, this, boost::asio::placeholders::error, sock));
 			}
@@ -162,7 +168,7 @@ namespace TinyRPC
             else
             {
 				cout << "write finished" << endl;
-				free(send_buffer);
+				send_buffers_[sock->remote_endpoint()] = NULL;
             }
         }
 
@@ -184,7 +190,8 @@ namespace TinyRPC
                         it = sockets_.insert(it, std::make_pair(remote, sock));
 						data_[remote] = new StreamBuffer();
 						StreamBuffer & data = *data_[remote];
-						data.clear();
+						data.clear(true);
+						send_buffers_[remote] = NULL;
 						recv_buffers_[remote] = (char *)malloc(BUFFER_SIZE);
 						char *receive_buffer = recv_buffers_[remote];
 						sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
@@ -213,7 +220,6 @@ namespace TinyRPC
             {
 				asioEP & remote = sock->remote_endpoint();
 				StreamBuffer & data = *data_[remote];
-				data.clear();
 				char *receive_buffer = recv_buffers_[remote];
 				if (bytes_transferred > 0) {
 					cout << "recv " << bytes_transferred << " bytes" << endl;
@@ -237,22 +243,20 @@ namespace TinyRPC
 							uint32_t sync = 0;
 							data.read(sync);
 							header_size += sizeof(sync);
-							StreamBuffer buf;
-							buf.write(data.get_buf() + header_size, size - header_size);
 							MessagePtr message(new MessageType);
 							message->set_seq(seq);
 							message->set_protocol_id(protocol_id);
 							message->set_sync(sync);
-							message->get_stream_buffer().clear();
-							message->get_stream_buffer().write(data.get_buf() + header_size, size - header_size);
+							message->set_stream_buffer(data);
+							//message->get_stream_buffer().write(data.get_buf(), size - header_size);
 							message->set_remote_addr(sock->remote_endpoint());
 							receive_queue_.push(message);
-							data.clear();
+							data.clear(true);
 						}
 					}
 				}
 				else {
-					data.clear();
+					data.clear(true);
 				}
 				sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
             }
@@ -276,7 +280,5 @@ namespace TinyRPC
         std::thread sending_thread_;
         std::thread accepting_thread_;
         std::vector<std::thread> workers_;
-
-		char *send_buffer;
     };
 };

@@ -48,8 +48,8 @@ namespace TinyRPC
         {
             if (!const_buf_)
             {
-                free(buf_);
-            }             
+				free(buf_);
+			}             
         }
 
         void swap(StreamBuffer & rhs)
@@ -63,7 +63,7 @@ namespace TinyRPC
 
         char * get_buf()
         {
-            return buf_;
+            return buf_ + gpos_;
         }
 
         void set_buf(const char * buf, size_t size)
@@ -168,10 +168,13 @@ namespace TinyRPC
             memcpy(buf_ + gpos_, buf, size);
         }
 
-		void clear() 
+		void clear(bool isZero) 
 		{
 			const_buf_ = false;
-            ppos_ = gpos_ = 0;
+			if (isZero)
+				gpos_ = 0;
+			ppos_ = gpos_;
+
 		}
 
 		void reset_gpos()

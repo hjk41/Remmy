@@ -84,11 +84,6 @@ public:
         }
     }
 
-	void barrier()
-	{
-		while (true);
-	}
-
 	// calls a remote function
 	uint32_t rpc_call(int who, ProtocolBase & protocol)
     {

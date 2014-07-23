@@ -28,7 +28,6 @@ public:
 
     void set_stream_buffer(StreamBuffer & buf)
     {
-		buffer_.clear();
 		buffer_.write(buf.get_buf(), buf.get_size());
     }
 
