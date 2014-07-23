@@ -25,12 +25,13 @@ namespace TinyRPC
     template<class RequestT, class ResponseT>
     class ProtocolTemplate : public ProtocolBase
     {
+		static_assert(std::is_pod<RequestT>::value && std::is_pod<ResponseT>::value, "Protocol is not implemented for this type.");
     public:
 		RequestT request;
 		ResponseT response;
 
 		void set_request(RequestT &req) {
-			buf_.clear();
+			buf_.clear(true);
 			buf_.write(req);
 		}
 		

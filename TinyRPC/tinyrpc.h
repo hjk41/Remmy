@@ -59,9 +59,7 @@ public:
 	~TinyRPCStub()
     {
     }
-
-
-
+    
 	// start processing messages
 	void start_serving()
     {
@@ -96,7 +94,7 @@ public:
 		message->set_sync(SYNC_RPC_CALL);
 		message->set_stream_buffer(protocol.get_buf());
 		boost::asio::ip::address addr;
-		message->set_remote_addr(asioEP(addr.from_string("127.0.0.1"), TEST_PORT));
+		message->set_remote_addr(asioEP(addr.from_string("10.190.172.62"), TEST_PORT));
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
         _comm->send(message);

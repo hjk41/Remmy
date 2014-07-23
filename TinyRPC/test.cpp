@@ -1,58 +1,3 @@
-//#include <iostream>
-//using namespace std;
-//
-//#include "tinyrpc.h"
-//using namespace TinyRPC;
-//
-//class EchoProtocol : public ProtocolTemplate<int, int>
-//{
-//public:
-//	virtual void handle_request(void * server)
-//	{
-//		response = request;
-//	}
-//
-//	virtual uint32_t ID()
-//	{
-//		return 0;
-//	}
-//};
-//
-//
-//
-//int main(int argc, char ** argv)
-//{
-//	TinyRPCStub * rpc = TinyRPCStub::get_instance();
-//	rpc->init(&argc, &argv);
-//
-//	int rank = rpc->get_node_id();
-//	
-//	if(rank == 0)
-//	{
-//		char c;
-//		cin>>c;
-//	}
-//	rpc->barrier();
-//
-//
-//	rpc->RegisterProtocol<EchoProtocol, NULL>();
-//	rpc->start_serving();
-//
-//	if (rank != 0)
-//	{
-////		MPI_Send(&rank, sizeof(rank), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-//		EchoProtocol p;
-//		p.request = 100 + rank;
-//		rpc->rpc_call(0, p);
-//		cout<<p.response<<endl;
-//	}
-//
-//	rpc->barrier();
-//
-//	rpc->delete_instance();
-//	return 0;
-//}
-
 #include <iostream>
 #include <type_traits>
 #include <functional>
@@ -72,10 +17,12 @@ public:
 	}
 
 	virtual void handle_request(StreamBuffer & buf) {
-		buf_.clear();
+		buf_.clear(true);
 		buf_.write(buf.get_buf(), buf.get_size());
 	}
 };
+
+const int TEST_PORT = 8082;
 
 int main()
 {
@@ -86,14 +33,28 @@ int main()
 
 	rpc->start_serving();
 
-	cout << "start test" << endl;
-	EchoProtocol p;
-	p.request = 1000;
-	cout << "the request = " << p.request << endl;
-	p.set_request(p.request);
-	cout << "rpc call" << endl;
-	rpc->rpc_call(0, p);
-	cout << "the response = " << p.response << endl;
+	int ins = 0;
+	cin >> ins;
+	
+	if (ins == 0) {
+		cout << "start test" << endl;
+		EchoProtocol p;
+		p.request = 1000;
+		cout << "the request = " << p.request << endl;
+		p.set_request(p.request);
+		cout << "rpc call" << endl;
+		rpc->rpc_call(0, p);
+		cout << "the response = " << p.response << endl;
+
+		p.request = 2000;
+		cout << "the request = " << p.request << endl;
+		p.set_request(p.request);
+		cout << "rpc call" << endl;
+		rpc->rpc_call(0, p);
+		cout << "the response = " << p.response << endl;
+	}
+
+	Sleep(10000);
 
     return 0;
 }
