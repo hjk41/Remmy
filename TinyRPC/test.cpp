@@ -43,14 +43,14 @@ int main()
 		cout << "the request = " << p.request << endl;
 		p.set_request(p.request);
 		cout << "rpc call" << endl;
-		rpc->rpc_call(0, p);
+		rpc->rpc_call("", 0, p);
 		cout << "the response = " << p.response << endl;
 
 		p.request = 2000;
 		cout << "the request = " << p.request << endl;
 		p.set_request(p.request);
 		cout << "rpc call" << endl;
-		rpc->rpc_call(0, p);
+		rpc->rpc_call("", 0, p);
 		cout << "the response = " << p.response << endl;
 	}
 

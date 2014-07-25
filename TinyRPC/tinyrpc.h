@@ -85,7 +85,7 @@ public:
     }
 
 	// calls a remote function
-	uint32_t rpc_call(int who, ProtocolBase & protocol)
+	uint32_t rpc_call(string address, int port, ProtocolBase & protocol)
     {
 		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
@@ -105,7 +105,7 @@ public:
         return SUCCESS;
     }
 
-	uint32_t rpc_call_async(int who, ProtocolBase & protocol)
+	uint32_t rpc_call_async(string address, int port, ProtocolBase & protocol)
     {
 		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
