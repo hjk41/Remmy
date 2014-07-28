@@ -15,9 +15,15 @@ namespace TinyRPC
 			return buf_;
 		}
 
-		virtual void get_response(StreamBuffer & buf) = 0;
+		virtual void marshall_request() = 0;
 
-		virtual void handle_request(StreamBuffer & buf) = 0;
+		virtual void marshall_response() = 0;
+
+		virtual void unmarshall_request(StreamBuffer & buf) = 0;
+
+		virtual void unmarshall_response(StreamBuffer & buf) = 0;
+
+		virtual void handle_request(void *server) = 0;
 
 		StreamBuffer buf_;
     };
@@ -30,12 +36,21 @@ namespace TinyRPC
 		RequestT request;
 		ResponseT response;
 
-		void set_request(RequestT &req) {
+		void marshall_request() {
 			buf_.clear(true);
-			buf_.write(req);
+			buf_.write(request);
 		}
-		
-		void get_response(StreamBuffer & buf) {
+
+		void marshall_response() {
+			buf_.clear(true);
+			buf_.write(response);
+		}
+
+		void unmarshall_request(StreamBuffer & buf) {
+			buf.read(request);
+		}
+
+		void unmarshall_response(StreamBuffer & buf) {
 			buf.read(response);
 		}
     };

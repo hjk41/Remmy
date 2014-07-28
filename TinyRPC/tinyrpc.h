@@ -85,16 +85,16 @@ public:
     }
 
 	// calls a remote function
-	uint32_t rpc_call(string address, int port, ProtocolBase & protocol)
+    uint32_t rpc_call(const EndPointT & ep, ProtocolBase & protocol)
     {
 		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
 		message->set_seq(seq);
 		message->set_protocol_id(protocol.get_id());
 		message->set_sync(SYNC_RPC_CALL);
+		protocol.marshall_request();
 		message->set_stream_buffer(protocol.get_buf());
-		boost::asio::ip::address addr;
-		message->set_remote_addr(asioEP(addr.from_string("10.190.172.62"), TEST_PORT));
+		message->set_remote_addr(ep);
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
         _comm->send(message);
@@ -105,15 +105,16 @@ public:
         return SUCCESS;
     }
 
-	uint32_t rpc_call_async(string address, int port, ProtocolBase & protocol)
+	uint32_t rpc_call_async(const EndPointT & ep, ProtocolBase & protocol)
     {
 		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
 		message->set_seq(seq);
 		message->set_protocol_id(protocol->get_id());
 		message->set_sync(ASYNC_RPC_CALL);
+		protocol.marshall_request();
 		message->set_stream_buffer(protocol->get_buf());
-		message->set_remote_addr(asioEP(boost::asio::ip::tcp::v4(), TEST_PORT));
+		message->set_remote_addr(ep);
         // send message
         _comm->send(message);
         return SUCCESS;
@@ -148,7 +149,7 @@ public:
             ProtocolBase * protocol = _sleeping_list.get_response_ptr(seq);
             if (_kill_threads)
                 return;
-			protocol->get_response(message->get_stream_buffer());
+			protocol->unmarshall_response(message->get_stream_buffer());
             //delete message;
             // wake up waiting thread
             _sleeping_list.signal_response(seq);
@@ -167,7 +168,8 @@ public:
             // a request
 			uint32_t is_async = message->get_sync();
             // handle request
-            protocol->handle_request(message->get_stream_buffer());
+			protocol->unmarshall_request(message->get_stream_buffer());
+            protocol->handle_request(_protocol_factory[protocol_id].second);
             // send response if sync call
             if (!is_async)
             {
@@ -175,6 +177,7 @@ public:
 				out_message->set_seq(-seq);
 				out_message->set_sync(is_async);
 				out_message->set_protocol_id(protocol_id);
+				protocol->marshall_response();
 				out_message->set_stream_buffer(protocol->get_buf());
 				out_message->set_remote_addr(message->get_remote_addr());
                 LOG("responding to %s:%d with seq=%d, protocol_id=%d\n", message->get_remote_addr().address(), message->get_remote_addr().port(), -seq, protocol_id);

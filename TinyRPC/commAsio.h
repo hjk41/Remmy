@@ -61,10 +61,8 @@ namespace TinyRPC
                 it.second->close();
                 delete it.second;
             }
-			for (auto & it : data_) {
-				delete it.second;
-			}
-			for (auto & it : recv_buffers_) {
+			for (auto & it : recv_data_) {
+				free(it.second);
 				delete it.second;
 			}
         };
@@ -101,43 +99,54 @@ namespace TinyRPC
             return receive_queue_.pop();
         };
     private:
+		asioSocket *check_socket(const asioEP & remote, asioSocket *sock) {
+			//accquire lock
+			m_mutex.lock();
+
+			EPSocketMap::iterator it = sockets_.find(remote);
+			if (it == sockets_.end())
+            {
+				if (!sock) {
+					sock = new asioSocket(io_service_);
+					try {
+						sock->connect(remote);
+					} catch (std::exception & e) {
+						WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string(), remote.port(), e.what());
+					}
+				}
+				it = sockets_.insert(it, std::make_pair(remote, sock));
+				LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
+				StreamBuffer *data = new StreamBuffer(BUFFER_SIZE);
+				data->clear(true);
+				recv_data_[remote] = data;
+				send_buffers_[remote] = NULL;
+				sock->async_read_some(boost::asio::buffer(data->get_end(), data->get_remain()), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+            }
+			else {
+				sock = it->second;
+			}
+			
+			//release lock
+			m_mutex.unlock();
+			return sock;
+		}
+
         void sending_thread_func()
         {
             while (true)
             {
                 MessagePtr msg = send_queue_.pop();
+				asioEP & remote = msg->get_remote_addr();
+				asioSocket *sock = check_socket(remote, NULL);
 
-                // get socket
-                EPSocketMap::iterator it = sockets_.find(msg->get_remote_addr());
-				asioEP remote = msg->get_remote_addr();
-                if (it == sockets_.end())
-                {
-                    asioSocket* sock = new asioSocket(io_service_);
-                    try
-                    {
-                        sock->connect(remote);
-                        it = sockets_.insert(it, std::make_pair(remote, sock));
-						LOG("connecting to server: %s:%d", remote.address().to_string(), remote.port());
-                    }
-                    catch (std::exception & e)
-                    {
-                        WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string(), remote.port(), e.what());
-                        continue;
-                    }
-					data_[remote] = new StreamBuffer();
-					send_buffers_[remote] = NULL;
-					recv_buffers_[remote] = (char *)malloc(BUFFER_SIZE);
-					char *receive_buffer = recv_buffers_[remote];
-					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
-                }
 
-				asioSocket* sock = it->second;
+				//if the socket is writing, check the next one
 				char *send_buffer = send_buffers_[remote];
-				while (send_buffer) 
-					Sleep(10);
-				StreamBuffer & data = *data_[remote];
-				data.clear(true);
-				
+				if (send_buffer) {
+					send_queue_.push(msg);
+					continue;
+				}
+
 				// send
                 // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
 				StreamBuffer & streamBuf = msg->get_stream_buffer();
@@ -163,7 +172,8 @@ namespace TinyRPC
         {
             if (ec)
             {
-                WARN("write error");
+                WARN("write error, try to handle failture");
+				handle_failture(ec, sock);
             }
             else
             {
@@ -181,26 +191,8 @@ namespace TinyRPC
                 try
                 {
                     acceptor_.accept(*sock);
-					// insert into the receiving sockets
                     asioEP & remote = sock->remote_endpoint();
-					EPSocketMap::iterator it = sockets_.find(remote);
-                    if (it == sockets_.end())
-                    {
-                        LOG("adding new receiving socket: %s:%d", remote.address().to_string(), remote.port());
-                        it = sockets_.insert(it, std::make_pair(remote, sock));
-						data_[remote] = new StreamBuffer();
-						StreamBuffer & data = *data_[remote];
-						data.clear(true);
-						send_buffers_[remote] = NULL;
-						recv_buffers_[remote] = (char *)malloc(BUFFER_SIZE);
-						char *receive_buffer = recv_buffers_[remote];
-						sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
-                    }
-                    else
-                    {
-                        WARN("socket reconnected? %s:%d", remote.address().to_string(), remote.port());
-                        it->second = sock;
-                    }
+					check_socket(remote, sock);
 				}
                 catch (exception & e)
                 {
@@ -213,55 +205,79 @@ namespace TinyRPC
         {
             if (ec)
             {
-                WARN("read error");
-				cout << ec.message() << endl;
+                WARN("read error, try to handle failture");
+				handle_failture(ec, sock);
             }
             else
             {
 				asioEP & remote = sock->remote_endpoint();
-				StreamBuffer & data = *data_[remote];
-				char *receive_buffer = recv_buffers_[remote];
+				StreamBuffer *data = recv_data_[remote];
 				if (bytes_transferred > 0) {
 					cout << "recv " << bytes_transferred << " bytes" << endl;
-					data.write(receive_buffer, bytes_transferred);
-					if (data.get_size() >= sizeof(size_t)) {
+					data->move_ppos(bytes_transferred);
+					if (data->get_size() >= sizeof(size_t)) {
 						size_t size = 0;
-						data.read(size);
-						data.reset_gpos();
-						// read has finished
-						if (data.get_size() == size) {
-							// packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
+						data->read(size);
+						data->reset_gpos();
+						if (data->get_size() == size) {
 							int header_size = 0;
-							data.read(size);
+							data->read(size);
 							header_size += sizeof(size);
+
 							int64_t seq = 0;
-							data.read(seq);
+							data->read(seq);
 							header_size += sizeof(seq);
+
 							uint32_t protocol_id = 0;
-							data.read(protocol_id);
+							data->read(protocol_id);
 							header_size += sizeof(protocol_id);
+
 							uint32_t sync = 0;
-							data.read(sync);
+							data->read(sync);
 							header_size += sizeof(sync);
+
 							MessagePtr message(new MessageType);
 							message->set_seq(seq);
 							message->set_protocol_id(protocol_id);
 							message->set_sync(sync);
-							message->set_stream_buffer(data);
-							//message->get_stream_buffer().write(data.get_buf(), size - header_size);
+
+							message->set_stream_buffer(*data);
 							message->set_remote_addr(sock->remote_endpoint());
 							receive_queue_.push(message);
-							data.clear(true);
+
+							data = new StreamBuffer(BUFFER_SIZE);
+							data->clear(true);
+							recv_data_[remote] = data;
+						}
+						else if (data->get_size() == bytes_transferred) {
+							data->reserve(size);
 						}
 					}
 				}
 				else {
-					data.clear(true);
 				}
-				sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
+				sock->async_read_some(boost::asio::buffer(data->get_end(), data->get_remain()), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
             }
         }
 
+		void handle_failture(const boost::system::error_code& ec, asioSocket *sock) {
+			m_mutex.lock();
+
+			asioEP & remote = sock->remote_endpoint();
+			EPSocketMap::iterator it = sockets_.find(remote);
+			if (it != sockets_.end()) {
+				sockets_.erase(it);
+				WARN("socket %s:%d will be closed with error msg: ", remote.address().to_string(), remote.port());
+				cout << ec.message() << endl;
+				sock->close();
+				send_buffers_[remote] = NULL;
+				StreamBuffer *data = recv_data_[remote];
+				delete data;
+				recv_data_[remote] = NULL;
+			}
+
+			m_mutex.unlock();
+		}
 
         bool started_;
         ConcurrentQueue<MessagePtr> send_queue_;
@@ -270,9 +286,8 @@ namespace TinyRPC
 		EPSocketMap sockets_;
 
 		EPBufferMap send_buffers_;
-		EPBufferMap recv_buffers_;
 
-		EPDataMap data_;
+		EPDataMap recv_data_;
 
 		asioService io_service_;
 		asioAcceptor acceptor_;
@@ -280,5 +295,7 @@ namespace TinyRPC
         std::thread sending_thread_;
         std::thread accepting_thread_;
         std::vector<std::thread> workers_;
+
+		std::mutex m_mutex;
     };
 };

@@ -44,12 +44,22 @@ namespace TinyRPC
         {
         }
 
+		StreamBuffer(size_t size)
+            : buf_((char*)malloc(size)),
+            const_buf_(false),
+            pend_(size),
+            gpos_(0),
+            ppos_(0)
+        {
+        }
+
+
         ~StreamBuffer()
         {
             if (!const_buf_)
             {
 				free(buf_);
-			}             
+			}
         }
 
         void swap(StreamBuffer & rhs)
@@ -57,7 +67,7 @@ namespace TinyRPC
             std::swap(const_buf_, rhs.const_buf_);
             std::swap(buf_, rhs.buf_);
             std::swap(pend_, rhs.pend_);
-            std::swap(gpos_, rhs.ppos_);
+            std::swap(gpos_, rhs.gpos_);
             std::swap(ppos_, rhs.ppos_);
         }
 
@@ -182,15 +192,44 @@ namespace TinyRPC
 			gpos_ = 0;
 		}
 
-	private:
+	protected:
+        void reserve(size_t size)
+        {
+			if (pend_ >= size)
+				return;
+            // reallocate buffer
+            LOG("buffer is reserved, reallocating. pend_ = %d, new_size = %d", pend_, size);
+			size = std::max(size, ppos_ + GROW_SIZE);
+            char * new_buf = (char *)realloc(buf_, size);
+            ASSERT(new_buf, "realloc failed");
+            buf_ = new_buf;
+            pend_ = size;
+        }
+
+		size_t get_remain() {
+			return pend_ - ppos_;
+		}
+
+		char *get_end() {
+			return buf_ + ppos_;
+		}
+
+        void move_ppos(size_t bytes_written)
+        {
+			ppos_ += bytes_written;
+        }
+
+	//private:
+	public:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }
 
-    private:
         char * buf_;
         bool const_buf_;// const buffers should not be written into
         size_t pend_;   // end of buffer0
         size_t gpos_;   // start of get
         size_t ppos_;   // start of put
+		
+		friend class TinyCommAsio;
     };
 }

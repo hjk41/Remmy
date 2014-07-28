@@ -9,6 +9,8 @@ using namespace std;
 #include "tinyrpc.h"
 using namespace TinyRPC;
 
+
+
 class EchoProtocol : public ProtocolTemplate<int, int>
 {
 public:
@@ -16,9 +18,8 @@ public:
 		return 0;
 	}
 
-	virtual void handle_request(StreamBuffer & buf) {
-		buf_.clear(true);
-		buf_.write(buf.get_buf(), buf.get_size());
+	virtual void handle_request(void *server) {
+        response = request;
 	}
 };
 
@@ -41,20 +42,20 @@ int main()
 		EchoProtocol p;
 		p.request = 1000;
 		cout << "the request = " << p.request << endl;
-		p.set_request(p.request);
 		cout << "rpc call" << endl;
-		rpc->rpc_call("", 0, p);
+		boost::asio::ip::address addr;
+		asioEP ep(addr.from_string("10.190.172.62"), TEST_PORT);
+		rpc->rpc_call(ep, p);
 		cout << "the response = " << p.response << endl;
 
 		p.request = 2000;
 		cout << "the request = " << p.request << endl;
-		p.set_request(p.request);
 		cout << "rpc call" << endl;
-		rpc->rpc_call("", 0, p);
+		rpc->rpc_call(ep, p);
 		cout << "the response = " << p.response << endl;
 	}
 
-	Sleep(10000);
+	Sleep(100000);
 
     return 0;
 }
