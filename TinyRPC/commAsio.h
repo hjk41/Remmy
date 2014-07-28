@@ -108,6 +108,8 @@ namespace TinyRPC
                 MessagePtr msg = send_queue_.pop();
 
                 // get socket
+                // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                // get a lock before accessing sockets_
                 EPSocketMap::iterator it = sockets_.find(msg->get_remote_addr());
 				asioEP remote = msg->get_remote_addr();
                 if (it == sockets_.end())
@@ -126,15 +128,19 @@ namespace TinyRPC
                     }
 					data_[remote] = new StreamBuffer();
 					send_buffers_[remote] = NULL;
-					recv_buffers_[remote] = (char *)malloc(BUFFER_SIZE);
-					char *receive_buffer = recv_buffers_[remote];
+                    char *receive_buffer = (char *)malloc(BUFFER_SIZE);
+                    recv_buffers_[remote] = receive_buffer;
 					sock->async_read_some(boost::asio::buffer(receive_buffer, BUFFER_SIZE), boost::bind(&TinyCommAsio::handle_read, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, sock));
                 }
 
 				asioSocket* sock = it->second;
 				char *send_buffer = send_buffers_[remote];
+                // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                // no sleep
 				while (send_buffer) 
 					Sleep(10);
+                // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                // ????
 				StreamBuffer & data = *data_[remote];
 				data.clear(true);
 				
@@ -163,6 +169,8 @@ namespace TinyRPC
         {
             if (ec)
             {
+                // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                // handle failure
                 WARN("write error");
             }
             else
@@ -182,6 +190,8 @@ namespace TinyRPC
                 {
                     acceptor_.accept(*sock);
 					// insert into the receiving sockets
+                    // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                    // lock
                     asioEP & remote = sock->remote_endpoint();
 					EPSocketMap::iterator it = sockets_.find(remote);
                     if (it == sockets_.end())
@@ -218,6 +228,8 @@ namespace TinyRPC
             }
             else
             {
+                // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+                // no copy
 				asioEP & remote = sock->remote_endpoint();
 				StreamBuffer & data = *data_[remote];
 				char *receive_buffer = recv_buffers_[remote];

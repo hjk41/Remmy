@@ -85,7 +85,7 @@ public:
     }
 
 	// calls a remote function
-	uint32_t rpc_call(int who, ProtocolBase & protocol)
+    uint32_t rpc_call(const EndPointT & ep, ProtocolBase & protocol)
     {
 		MessagePtr message(new MessageType);
         int64_t seq = get_new_seq_num();
@@ -93,8 +93,9 @@ public:
 		message->set_protocol_id(protocol.get_id());
 		message->set_sync(SYNC_RPC_CALL);
 		message->set_stream_buffer(protocol.get_buf());
-		boost::asio::ip::address addr;
-		message->set_remote_addr(asioEP(addr.from_string("10.190.172.62"), TEST_PORT));
+        // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+
+		message->set_remote_addr(ep));
         // send message
         _sleeping_list.set_response_ptr(seq, &protocol);
         _comm->send(message);
@@ -113,6 +114,7 @@ public:
 		message->set_protocol_id(protocol->get_id());
 		message->set_sync(ASYNC_RPC_CALL);
 		message->set_stream_buffer(protocol->get_buf());
+        // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
 		message->set_remote_addr(asioEP(boost::asio::ip::tcp::v4(), TEST_PORT));
         // send message
         _comm->send(message);
@@ -148,6 +150,7 @@ public:
             ProtocolBase * protocol = _sleeping_list.get_response_ptr(seq);
             if (_kill_threads)
                 return;
+            // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
 			protocol->get_response(message->get_stream_buffer());
             //delete message;
             // wake up waiting thread
@@ -166,6 +169,7 @@ public:
             ProtocolBase * protocol = _protocol_factory[protocol_id].first->create_protocol();
             // a request
 			uint32_t is_async = message->get_sync();
+            // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
             // handle request
             protocol->handle_request(message->get_stream_buffer());
             // send response if sync call

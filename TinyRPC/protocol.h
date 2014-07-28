@@ -15,6 +15,7 @@ namespace TinyRPC
 			return buf_;
 		}
 
+        // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
 		virtual void get_response(StreamBuffer & buf) = 0;
 
 		virtual void handle_request(StreamBuffer & buf) = 0;

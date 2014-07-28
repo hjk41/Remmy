@@ -182,6 +182,22 @@ namespace TinyRPC
 			gpos_ = 0;
 		}
 
+        protected:
+        // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+        void reserve(size_t size)
+        {
+        }
+
+        // TODO: XXXXXXXXXXXXXXXXXXXXXXXXXXXx
+        void get_write_buf(char ** buf, size_t * remaining)
+        {
+            // async_read(buf, remaining)
+        }
+
+        void move_ppos(size_t bytes_write)
+        {
+            // read_handler(){move_ppos(bytes_read);}
+        }
 	private:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }

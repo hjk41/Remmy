@@ -9,6 +9,8 @@ using namespace std;
 #include "tinyrpc.h"
 using namespace TinyRPC;
 
+
+
 class EchoProtocol : public ProtocolTemplate<int, int>
 {
 public:
@@ -16,10 +18,14 @@ public:
 		return 0;
 	}
 
-	virtual void handle_request(StreamBuffer & buf) {
-		buf_.clear(true);
-		buf_.write(buf.get_buf(), buf.get_size());
+	virtual void handle_request() {
+		//buf_.clear(true);
+		//buf_.write(buf.get_buf(), buf.get_size());
+        response = request;
 	}
+private:
+    int response;
+    int request;
 };
 
 const int TEST_PORT = 8082;
