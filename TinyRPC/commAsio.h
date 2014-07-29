@@ -53,7 +53,7 @@ namespace TinyRPC
 
         struct SocketBuffers
         {
-            SocketBuffers() : sock(nullptr){}
+            SocketBuffers() : sock(nullptr), receive_buffer(RECEIVE_BUFFER_SIZE){}
             asioSocket * sock;
             ResizableBuffer receive_buffer;            
             std::list<std::pair<MessagePtr, cvPtr>> send_buffer;
@@ -96,6 +96,9 @@ namespace TinyRPC
         // send/receive
         virtual CommErrors send(const MessagePtr & msg) override
         {
+            // pad a uint64_t size at the head of the buffer
+            uint64_t size = msg->get_stream_buffer().get_size() + sizeof(uint64_t);
+            msg->get_stream_buffer().write_head(size);
             SocketBuffers * socket = get_socket(msg->get_remote_addr());
             LockGuard sl(socket->lock);
             try
@@ -178,7 +181,11 @@ namespace TinyRPC
                     acceptor_.accept(*sock);
                     asioEP & remote = sock->remote_endpoint();
                     LockGuard l(sockets_lock_);
-                    SocketBuffers * socket = sockets_[remote];
+                    SocketBuffers *& socket = sockets_[remote];
+                    if (socket == nullptr)
+                    {
+                        socket = new SocketBuffers();
+                    }
                     ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
                     socket->sock = sock;
                     post_async_read(socket);
@@ -197,7 +204,8 @@ namespace TinyRPC
             {
                 void * buf = socket->receive_buffer.get_writable_buf();
                 size_t size = socket->receive_buffer.get_writable_size();
-                socket->sock->async_receive(boost::asio::buffer(buf, size),
+                ASSERT(buf != nullptr && size != 0, "no buf space left, buf=%p, size=%llu", buf, size);
+                socket->sock->async_read_some(boost::asio::buffer(buf, size),
                     [this, socket](const boost::system::error_code& ec, std::size_t bytes_transferred)
                 {
                     handle_read(socket, ec, bytes_transferred);
@@ -220,7 +228,6 @@ namespace TinyRPC
             {
                 LockGuard sl(socket->lock);
                 asioEP & remote = socket->sock->remote_endpoint();
-                ASSERT(bytes_transferred > 0, "we received less than zero bytes: transferred = %llu", bytes_transferred);
                 LOG("received %llu bytes from socket", bytes_transferred);
                 socket->receive_buffer.mark_receive_bytes(bytes_transferred);
                 size_t bytes_received_total = socket->receive_buffer.get_received_bytes();
@@ -263,7 +270,11 @@ namespace TinyRPC
         SocketBuffers * get_socket(const asioEP & remote)
         {
             LockGuard l(sockets_lock_);
-            SocketBuffers * socket = sockets_[remote];
+            SocketBuffers *& socket = sockets_[remote];
+            if (socket == nullptr)
+            {
+                socket = new SocketBuffers();
+            }
             LockGuard sl(socket->lock);
             if (socket->sock == nullptr)
             {
@@ -277,12 +288,13 @@ namespace TinyRPC
                     WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string(), remote.port(), e.what());
                     throw e;
                 }
-                LOG("connected to server: %s:%d", remote.address().to_string(), remote.port());
+                LOG("connected to server: %s:%d", remote.address().to_string().c_str(), remote.port());
                 // when we have a null socket, the sending buffer and receiving buffer must be empty
-                ASSERT(socket->send_buffer.empty() && socket->receive_buffer.size() == 0,
-                    "unexpected non-empty buffer");
+                ASSERT(socket->receive_buffer.get_received_bytes() == 0,
+                    "unexpected non-empty receive buffer");
                 // now, post a async read
                 socket->receive_buffer.resize(RECEIVE_BUFFER_SIZE);
+                socket->sock = sock;
                 post_async_read(socket);
             }
             return socket;

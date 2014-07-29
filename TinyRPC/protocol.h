@@ -26,22 +26,18 @@ namespace TinyRPC
     template<class RequestT, class ResponseT>
     class ProtocolTemplate : public ProtocolBase
     {
-        static_assert(std::is_pod<RequestT>::value, "RequestT must be POD.");
-        static_assert(std::is_pod<ResponseT>::value, "ResponseT must be POD.");
     public:
 		RequestT request;
 		ResponseT response;
 
         virtual StreamBuffer & marshall_request(StreamBuffer & buf) override
         {
-            //return Serialize(buf, request);
-            return buf;
+            return Serialize(buf, request);
         }
 
         StreamBuffer & marshall_response(StreamBuffer & buf) override
         {
-            //return Serialize(buf, response);
-            return buf;
+            return Serialize(buf, response);
 		}
 
         virtual StreamBuffer & unmarshall_request(StreamBuffer & buf) override

@@ -159,7 +159,7 @@
     <ClInclude Include="streambuffer.h" />
     <ClInclude Include="tinycomm.h" />
     <ClInclude Include="logging.h" />
-    <ClInclude Include="tinylock.h" />
+    <ClInclude Include="sleeplist.h" />
     <ClInclude Include="tinyrpc.h" />
   </ItemGroup>
   <ItemGroup>

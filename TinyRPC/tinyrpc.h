@@ -8,14 +8,11 @@
 
 #include "protocol.h"
 #include "tinycomm.h"
-#include "tinylock.h"
+#include "sleeplist.h"
 
 
 namespace TinyRPC
 {
-
-    static const int NUM_WORKER_THREADS = 4;
-
     enum TinyErrorCode
     {
 	    SUCCESS = 0,
@@ -47,25 +44,20 @@ namespace TinyRPC
 
         struct MessageHeader
         {
-            MessageHeader(){};
-            MessageHeader(int64_t seq, uint32_t pid, uint32_t async)
-                : seq_num(seq),
-                protocol_id(pid),
-                is_async(async)
-            {}
             int64_t seq_num;
             uint32_t protocol_id;
             uint32_t is_async;
         };
 
     public:
-        TinyRPCStub(TinyCommBase<EndPointT> * comm)
+        TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers)
             : _comm(comm),
-            _seq_num(1)
+            _seq_num(1),
+            _worker_threads(num_workers)
         {
             _comm->start();
             // start threads
-            for (int i = 0; i< NUM_WORKER_THREADS; i++)
+            for (int i = 0; i< num_workers; i++)
             {
                 _worker_threads[i] = std::thread([this, i]()
                 {
@@ -89,23 +81,24 @@ namespace TinyRPC
         {
 		    MessagePtr message(new MessageType);
             // write header
-            uint32_t async_rpc = is_async ? RPC_ASYNC : RPC_SYNC;
-            int64_t seq = get_new_seq_num();
-            Serialize(message->get_stream_buffer(), 
-                MessageHeader(seq, protocol.get_id(), async_rpc));
-            LOG("Calling rpc, seq=%lld, pid=%d, async=%d", seq, protocol.get_id(), async_rpc);
+            MessageHeader header;
+            header.seq_num = get_new_seq_num();
+            header.protocol_id = protocol.get_id();
+            header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
+            Serialize(message->get_stream_buffer(), header);
+            LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             protocol.marshall_request(message->get_stream_buffer());
             // send message
             message->set_remote_addr(ep);
-            if (is_async)
+            if (!is_async)
             {
-                _sleeping_list.set_response_ptr(seq, &protocol);
+                _sleeping_list.set_response_ptr(header.seq_num, &protocol);
             }            
             _comm->send(message);
             // wait for signal
-            if (is_async)
+            if (!is_async)
             {
-                _sleeping_list.wait_for_response(seq);
+                _sleeping_list.wait_for_response(header.seq_num);
             }
             return SUCCESS;
         }
@@ -159,11 +152,11 @@ namespace TinyRPC
                 {
                     MessagePtr out_message(new MessageType);
                     header.seq_num = -header.seq_num;
-                    Serialize(msg->get_stream_buffer(), header);
-                    protocol->marshall_response(msg->get_stream_buffer());
+                    Serialize(out_message->get_stream_buffer(), header);
+                    protocol->marshall_response(out_message->get_stream_buffer());
                     out_message->set_remote_addr(msg->get_remote_addr());
                     LOG("responding to %s with seq=%d, protocol_id=%d\n", 
-                        EPToString(msg->get_remote_addr()).c_str(), header.seq_num, header.protocol_id);
+                        EPToString(out_message->get_remote_addr()).c_str(), header.seq_num, header.protocol_id);
                     _comm->send(out_message);
                 }
                 delete protocol;
@@ -172,7 +165,7 @@ namespace TinyRPC
 
         int64_t get_new_seq_num()
         {
-            TinyAutoLock l(_seq_lock);
+            LockGuard l(_seq_lock);
             if (_seq_num >= INT64_MAX - 1)
                 _seq_num = 1;
             return _seq_num++;
@@ -185,7 +178,7 @@ namespace TinyRPC
 	    std::vector<std::thread> _worker_threads;
 	    // sequence number
 	    int64_t _seq_num;
-	    TinyLock _seq_lock;
+	    std::mutex _seq_lock;
 	    // waiting queue
 	    SleepingList<ProtocolBase> _sleeping_list;
     };	

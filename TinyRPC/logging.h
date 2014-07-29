@@ -16,7 +16,7 @@ namespace TinyRPC
         LOG_ERROR = 2
     };
 
-    #define LOG_LEVEL 0
+    #define LOG_LEVEL 1
 
     inline void OctopusLog(LogLevel level,
         const char * component,
@@ -46,13 +46,13 @@ namespace TinyRPC
         switch (level)
         {
         case LOG_INFO:
-            fprintf(stdout, "OctopusLog[%s:%d]: ", filename, lineNum);
+            fprintf(stdout, "[%s:%d]: ", filename, lineNum);
             break;
         case LOG_WARNING:
-            fprintf(stdout, "OctopusWarn[%s:%d]: ", filename, lineNum);
+            fprintf(stdout, "[%s:%d]: ", filename, lineNum);
             break;
         case LOG_ERROR:
-            fprintf(stdout, "OctopusErr[%s:%d]: ", filename, lineNum);
+            fprintf(stdout, "[%s:%d]: ", filename, lineNum);
             break;
         }
 #endif

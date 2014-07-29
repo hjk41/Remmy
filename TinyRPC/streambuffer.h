@@ -228,6 +228,7 @@ namespace TinyRPC
         {
             void * newbuf = realloc(buf_, size);
             ASSERT(newbuf != nullptr, "realloc failed, original size=%lld, target size=%lld", size_, size);
+            buf_ = newbuf;
             size_ = size;
         }
 
@@ -268,8 +269,8 @@ namespace TinyRPC
         void * renew_buf(size_t size)
         {
             void * b = buf_;
-            buf_ = nullptr;
-            size_ = 0;
+            buf_ = malloc(size);
+            size_ = size;
             received_bytes_ = 0;
             return b;
         }

@@ -10,6 +10,7 @@ namespace TinyRPC
     StreamBuffer & Serialize(StreamBuffer & buf, const T & val)
     {
         ASSERT(std::is_pod<T>::value, "Serialize function for %s is not implemented.", typeid(T).name());
+        //static_assert(std::is_pod<T>::value, "Serialize function for this type is not implemented.");
         buf.write(val);
         return buf;
     }
