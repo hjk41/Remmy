@@ -1,13 +1,13 @@
 tinyrpc
 =======
 
-tinyrpc is a simple RPC library built on top of MPI
+tinyrpc is a simple RPC library. The communication layer can be implemented with any network library. 
 
-Well, of course you can replace the communication with a socket library or other communication library
+Currently, we suport MPI and boost::asio.
 
 Current implementation uses C++11 threads and locks, so you need a new compiler to compile the code.
 
-Tested on visual studio 2012. 
+Tested on visual studio 2013. 
 
 
 Any questions or suggestions, feel free to ping me: chuntao.hong@gmail.com
