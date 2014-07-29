@@ -22,8 +22,8 @@ namespace TinyRPC
 
 #ifdef USE_CPP_LOCK
 typedef std::mutex TinyLock;
-
 typedef std::unique_lock<std::mutex> TinyAutoLock;
+typedef std::lock_guard<std::mutex> TinyLockGuard;
 
 class TinyConditional
 {

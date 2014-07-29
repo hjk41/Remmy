@@ -21,12 +21,22 @@ namespace TinyRPC
         /// Here we allocate 128 bytes and reserve the first 64 bytes as header space.
         /// </summary>
         StreamBuffer()
-            : buf_((char*)malloc(RESERVED_HEADER_SPACE * 2)),
+            : buf_(nullptr),
             const_buf_(false),
-            pend_(RESERVED_HEADER_SPACE * 2),
-            gpos_(RESERVED_HEADER_SPACE),
-            ppos_(RESERVED_HEADER_SPACE)
+            pend_(0),
+            gpos_(0),
+            ppos_(0)
         {
+        }
+
+        void init_ostream()
+        {
+            ASSERT(buf_ == nullptr, "trying to init a already-initialized buffer");
+            buf_ = (char*)malloc(RESERVED_HEADER_SPACE * 2);
+            const_buf_ = false;
+            pend_ = RESERVED_HEADER_SPACE * 2;
+            gpos_ = RESERVED_HEADER_SPACE;
+            ppos_ = RESERVED_HEADER_SPACE;
         }
 
         /// <summary>
@@ -52,7 +62,6 @@ namespace TinyRPC
             ppos_(0)
         {
         }
-
 
         ~StreamBuffer()
         {
@@ -102,13 +111,17 @@ namespace TinyRPC
         template<class T>
         void write(const T & val)
         {
-            static_assert(std::is_pod<T>::value, "StreamBuffer::write(T) not implemented for this type.");
+            ASSERT(std::is_pod<T>::value, "StreamBuffer::write(T) not implemented for %s.", typeid(T).name());
             write((char*)&val, sizeof(val));
         }
 
         void write(const char * buf, size_t size)
         {
             ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
+            if (buf_ == nullptr)
+            {
+                init_ostream();
+            }
             size_t new_size = size + ppos_;
             if (new_size > pend_)
             {
@@ -127,7 +140,7 @@ namespace TinyRPC
         template<class T>
         void read(T & val)
         {
-            static_assert(std::is_pod<T>::value, "StreamBuffer::read(T&) not implemented for this type.");
+            ASSERT(std::is_pod<T>::value, "StreamBuffer::read(T&) not implemented for %s.", typeid(T).name());
             read(&val, sizeof(val));
         }
 
@@ -178,48 +191,6 @@ namespace TinyRPC
             memcpy(buf_ + gpos_, buf, size);
         }
 
-		void clear(bool isZero) 
-		{
-			const_buf_ = false;
-			if (isZero)
-				gpos_ = 0;
-			ppos_ = gpos_;
-
-		}
-
-		void reset_gpos()
-		{
-			gpos_ = 0;
-		}
-
-	protected:
-        void reserve(size_t size)
-        {
-			if (pend_ >= size)
-				return;
-            // reallocate buffer
-            LOG("buffer is reserved, reallocating. pend_ = %d, new_size = %d", pend_, size);
-			size = std::max(size, ppos_ + GROW_SIZE);
-            char * new_buf = (char *)realloc(buf_, size);
-            ASSERT(new_buf, "realloc failed");
-            buf_ = new_buf;
-            pend_ = size;
-        }
-
-		size_t get_remain() {
-			return pend_ - ppos_;
-		}
-
-		char *get_end() {
-			return buf_ + ppos_;
-		}
-
-        void move_ppos(size_t bytes_written)
-        {
-			ppos_ += bytes_written;
-        }
-
-	//private:
 	public:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }
@@ -232,4 +203,82 @@ namespace TinyRPC
 		
 		friend class TinyCommAsio;
     };
+
+    class ResizableBuffer
+    {
+    public:
+        ResizableBuffer()
+            : buf_(nullptr),
+            size_(0),
+            received_bytes_(0)
+        {}
+
+        ResizableBuffer(size_t size)
+            : buf_(malloc(size)),
+            size_(size),
+            received_bytes_(0)
+        {}
+
+        ~ResizableBuffer()
+        {
+            free(buf_);
+        }
+
+        void resize(size_t size)
+        {
+            void * newbuf = realloc(buf_, size);
+            ASSERT(newbuf != nullptr, "realloc failed, original size=%lld, target size=%lld", size_, size);
+            size_ = size;
+        }
+
+        size_t size()
+        {
+            return size_;
+        }
+
+        void * get_buf()
+        {
+            return buf_;
+        }
+
+        size_t get_received_bytes()
+        {
+            return received_bytes_;
+        }
+
+        void mark_receive_bytes(size_t size)
+        {
+            received_bytes_ += size;
+        }
+
+        // get buf pointer
+        void * get_writable_buf()
+        {
+            return (char*)buf_ + received_bytes_;
+        }
+
+        // get writable size
+        size_t get_writable_size()
+        {
+            return size_ - received_bytes_;
+        }
+
+        // take out the buf, release the ownership of the pointer
+        // and malloc a new buffer
+        void * renew_buf(size_t size)
+        {
+            void * b = buf_;
+            buf_ = nullptr;
+            size_ = 0;
+            received_bytes_ = 0;
+            return b;
+        }
+    private:
+        ResizableBuffer(const ResizableBuffer &){};
+        ResizableBuffer & operator=(const ResizableBuffer &){ return *this; }
+        void * buf_;
+        size_t size_;
+        size_t received_bytes_;
+    };
+
 }
