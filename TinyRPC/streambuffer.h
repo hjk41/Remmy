@@ -115,7 +115,7 @@ namespace TinyRPC
             write((char*)&val, sizeof(val));
         }
 
-        void write(const char * buf, size_t size)
+        void write(const void * buf, size_t size)
         {
             ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
             if (buf_ == nullptr)

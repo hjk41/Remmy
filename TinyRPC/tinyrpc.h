@@ -103,8 +103,8 @@ namespace TinyRPC
             return SUCCESS;
         }
 
-	    template<class T, void * app_server>
-	    void RegisterProtocol()
+	    template<class T>
+        void RegisterProtocol(void * app_server)
 	    {
 		    T * t = new T;
 		    uint32_t id = t->get_id();

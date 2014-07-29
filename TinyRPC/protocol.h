@@ -12,13 +12,13 @@ namespace TinyRPC
     public:
         virtual uint32_t get_id() = 0;
 		
-		virtual StreamBuffer & marshall_request(StreamBuffer &) = 0;
+		virtual void marshall_request(StreamBuffer &) = 0;
 
-        virtual StreamBuffer & marshall_response(StreamBuffer &) = 0;
+        virtual void marshall_response(StreamBuffer &) = 0;
 
-        virtual StreamBuffer & unmarshall_request(StreamBuffer &) = 0;
+        virtual void unmarshall_request(StreamBuffer &) = 0;
 
-        virtual StreamBuffer & unmarshall_response(StreamBuffer &) = 0;
+        virtual void unmarshall_response(StreamBuffer &) = 0;
 
 		virtual void handle_request(void *server) = 0;
     };
@@ -30,24 +30,24 @@ namespace TinyRPC
 		RequestT request;
 		ResponseT response;
 
-        virtual StreamBuffer & marshall_request(StreamBuffer & buf) override
+        virtual void marshall_request(StreamBuffer & buf) override
         {
-            return Serialize(buf, request);
+            Serialize(buf, request);
         }
 
-        StreamBuffer & marshall_response(StreamBuffer & buf) override
+        void marshall_response(StreamBuffer & buf) override
         {
-            return Serialize(buf, response);
+            Serialize(buf, response);
 		}
 
-        virtual StreamBuffer & unmarshall_request(StreamBuffer & buf) override
+        virtual void unmarshall_request(StreamBuffer & buf) override
         {
-            return Deserialize(buf, request);
+            Deserialize(buf, request);
         }
 
-        virtual StreamBuffer & unmarshall_response(StreamBuffer & buf) override
+        virtual void unmarshall_response(StreamBuffer & buf) override
         {
-            return Deserialize(buf, response);
+            Deserialize(buf, response);
         }
     };
 
