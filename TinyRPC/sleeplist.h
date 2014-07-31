@@ -66,7 +66,7 @@ namespace TinyRPC
             }
             else
             {
-                std::cv_status::cv_status s = 
+                std::cv_status s = 
                     rs->cv.wait_for(l, std::chrono::milliseconds(timeout));
                 if (s == std::cv_status::timeout)
                 {
