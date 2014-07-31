@@ -13,10 +13,12 @@
 
 namespace TinyRPC
 {
-    enum TinyErrorCode
+    enum class TinyErrorCode
     {
 	    SUCCESS = 0,
-	    KILLING_THREADS = 1
+        FAIL_SEND = 1,
+        TIMEOUT = 2,
+	    KILLING_THREADS = 3
     };
 
     class RequestFactoryBase
@@ -77,7 +79,7 @@ namespace TinyRPC
         }
 
 	    // calls a remote function
-        uint32_t rpc_call(const EndPointT & ep, ProtocolBase & protocol, bool is_async = false)
+        TinyErrorCode rpc_call(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false)
         {
 		    MessagePtr message(new MessageType);
             // write header
@@ -92,15 +94,30 @@ namespace TinyRPC
             message->set_remote_addr(ep);
             if (!is_async)
             {
-                _sleeping_list.set_response_ptr(header.seq_num, &protocol);
-            }            
-            _comm->send(message);
-            // wait for signal
-            if (!is_async)
-            {
-                _sleeping_list.wait_for_response(header.seq_num);
+                _sleeping_list.add_event(header.seq_num, &protocol);
             }
-            return SUCCESS;
+            CommErrors err = _comm->send(message);
+            if (err != CommErrors::SUCCESS)
+            {
+                WARN("error during rpc_call-send: %d", err);
+                _sleeping_list.remove_event(header.seq_num);
+                return TinyErrorCode::FAIL_SEND;
+            }
+            // wait for signal
+            if (is_async)
+            {
+                return TinyErrorCode::SUCCESS;
+            }
+            
+            bool ret = _sleeping_list.wait_for_response(header.seq_num, timeout);
+            if (ret == true)
+            {
+                return TinyErrorCode::SUCCESS;
+            }
+            else
+            {
+                return TinyErrorCode::TIMEOUT;
+            }
         }
 
 	    template<class T>
@@ -131,9 +148,13 @@ namespace TinyRPC
                 // negative seq number indicates a response to a sync rpc call
                 header.seq_num = -header.seq_num;
                 ProtocolBase * protocol = _sleeping_list.get_response_ptr(header.seq_num);
-                protocol->unmarshall_response(msg->get_stream_buffer());
-                // wake up waiting thread
-                _sleeping_list.signal_response(header.seq_num);
+                if (protocol != nullptr)
+                {
+                    // null protocol indicates this request already timedout and removed
+                    // so we don't need to get the response or signal the thread
+                    protocol->unmarshall_response(msg->get_stream_buffer());
+                    _sleeping_list.signal_response(header.seq_num);
+                }                
             }
             else
             {

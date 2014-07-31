@@ -54,13 +54,18 @@ namespace TinyRPC
         struct SocketBuffers
         {
             SocketBuffers() : sock(nullptr), receive_buffer(RECEIVE_BUFFER_SIZE){}
+            ~SocketBuffers(){ delete sock; }
             asioSocket * sock;
             ResizableBuffer receive_buffer;            
-            std::list<std::pair<MessagePtr, cvPtr>> send_buffer;
             std::mutex lock;
+            asioEP target;
+        private:
+            SocketBuffers(const SocketBuffers &);
+            SocketBuffers & operator=(const SocketBuffers&);
         };
 
-        typedef std::unordered_map<asioEP, SocketBuffers*, EPHasher> EPSocketMap;
+        typedef std::shared_ptr<SocketBuffers> SocketBuffersPtr;
+        typedef std::unordered_map<asioEP, SocketBuffersPtr, EPHasher> EPSocketMap;
     public:
         TinyCommAsio(int port)
             : acceptor_(io_service_, asioEP(boost::asio::ip::tcp::v4(), port)),
@@ -99,16 +104,17 @@ namespace TinyRPC
             // pad a uint64_t size at the head of the buffer
             uint64_t size = msg->get_stream_buffer().get_size() + sizeof(uint64_t);
             msg->get_stream_buffer().write_head(size);
-            SocketBuffers * socket = get_socket(msg->get_remote_addr());
-            LockGuard sl(socket->lock);
             try
             {
+                SocketBuffersPtr socket = get_socket(msg->get_remote_addr());
+                LockGuard sl(socket->lock);
                 boost::asio::write(*(socket->sock),
                     boost::asio::buffer(msg->get_stream_buffer().get_buf(), msg->get_stream_buffer().get_size()));
             }
             catch (std::exception & e)
             {
-                ABORT("error occurred: %s", e.what());
+                WARN("communication error occurred: %s", e.what());
+                return CommErrors::SEND_ERROR;
             }            
             return CommErrors::SUCCESS;
         };
@@ -117,59 +123,8 @@ namespace TinyRPC
         { 
             return receive_queue_.pop();
         };
+
     private:
-
-        void sending_thread_func()
-        {
-   //         while (true)
-   //         {
-   //             MessagePtr msg = send_queue_.pop();
-			//	asioEP & remote = msg->get_remote_addr();
-			//	asioSocket *sock = check_socket(remote, NULL);
-
-
-			//	//if the socket is writing, check the next one
-			//	char *send_buffer = send_buffers_[remote];
-			//	if (send_buffer) {
-			//		send_queue_.push(msg);
-			//		continue;
-			//	}
-
-			//	// send
-   //             // packet format: size_t fullSize | int64_t seq | uint32_t protocol_id | uint32_t sync | contents
-			//	StreamBuffer & streamBuf = msg->get_stream_buffer();
-			//	size_t size = streamBuf.get_size();
-			//	size_t fullSize = size + sizeof(int64_t) + 2 * sizeof(uint32_t) + sizeof(size_t);
-			//	int64_t seq = msg->get_seq();
-			//	uint32_t protocol_id = msg->get_protocol_id();
-			//	uint32_t sync = msg->get_sync();
-
-			//	streamBuf.write_head(sync);
-			//	streamBuf.write_head(protocol_id);
-			//	streamBuf.write_head(seq);
-			//	streamBuf.write_head(fullSize);
-
-			//	send_buffer = streamBuf.get_buf();
-			//	send_buffers_[remote] = send_buffer;
-
-			//	boost::asio::async_write(*sock, boost::asio::buffer(send_buffer, fullSize), boost::bind(&TinyCommAsio::handle_write, this, boost::asio::placeholders::error, sock));
-			//}
-        }
-
-		void handle_write(const boost::system::error_code& ec, asioSocket *sock)
-        {
-    //        if (ec)
-    //        {
-    //            WARN("write error, try to handle failture");
-				//handle_failture(ec, sock);
-    //        }
-    //        else
-    //        {
-				//cout << "write finished" << endl;
-				//send_buffers_[sock->remote_endpoint()] = NULL;
-    //        }
-        }
-
         void accepting_thread_func()
         {
             acceptor_.listen();
@@ -181,10 +136,10 @@ namespace TinyRPC
                     acceptor_.accept(*sock);
                     asioEP & remote = sock->remote_endpoint();
                     LockGuard l(sockets_lock_);
-                    SocketBuffers *& socket = sockets_[remote];
+                    SocketBuffersPtr & socket = sockets_[remote];
                     if (socket == nullptr)
                     {
-                        socket = new SocketBuffers();
+                        socket = SocketBuffersPtr(new SocketBuffers());
                     }
                     ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
                     socket->sock = sock;
@@ -197,7 +152,7 @@ namespace TinyRPC
             }
         }
 
-        inline void post_async_read(SocketBuffers * socket)
+        inline void post_async_read(const SocketBuffersPtr & socket)
         {
             // ASSUMING socket.lock is held
             try
@@ -217,7 +172,7 @@ namespace TinyRPC
             }
         }
 
-        void handle_read(SocketBuffers * socket, const boost::system::error_code& ec, std::size_t bytes_transferred)
+        void handle_read(SocketBuffersPtr socket, const boost::system::error_code& ec, std::size_t bytes_transferred)
         {
             if (ec)
             {
@@ -262,18 +217,31 @@ namespace TinyRPC
             }
         }
 
-        void handle_failure(SocketBuffers * socket, const boost::system::error_code& ec)
+        void handle_failure(SocketBuffersPtr socket, const boost::system::error_code& ec)
         {
-            ABORT("a failure occurred, ec=%d", ec);
+            WARN("a network failure occurred, ec=%d", ec);
+            LockGuard l(sockets_lock_);
+            LockGuard sl(socket->lock);
+            if (socket->sock == nullptr)
+            {
+                delete socket->sock;
+                socket->sock = nullptr;
+            }
+            auto it = sockets_.find(socket->target);
+            if (it != sockets_.end() && it->second == socket)
+            {
+                sockets_.erase(it);
+            }
 		}
 
-        SocketBuffers * get_socket(const asioEP & remote)
+        SocketBuffersPtr get_socket(const asioEP & remote)
         {
             LockGuard l(sockets_lock_);
-            SocketBuffers *& socket = sockets_[remote];
+            SocketBuffersPtr & socket = sockets_[remote];
             if (socket == nullptr)
             {
-                socket = new SocketBuffers();
+                socket = SocketBuffersPtr(new SocketBuffers());
+                socket->target = remote;
             }
             LockGuard sl(socket->lock);
             if (socket->sock == nullptr)

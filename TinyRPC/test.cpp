@@ -88,7 +88,7 @@ const int TEST_PORT = 8082;
 
 
 
-int main()
+int main(int argc, char ** argv)
 {
 	TinyCommBase<asioEP> *test = new TinyCommAsio(TEST_PORT);
 	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
@@ -103,7 +103,7 @@ int main()
 	cout << "the request = " << p.request << endl;
 	cout << "rpc call" << endl;
 	boost::asio::ip::address addr;
-	asioEP ep(addr.from_string("10.190.172.62"), TEST_PORT);
+	asioEP ep(addr.from_string("127.0.0.1"), TEST_PORT);
 	rpc->rpc_call(ep, p);
 	cout << "the response = " << p.response << endl;
 
