@@ -189,27 +189,61 @@ namespace TinyRPC
                 // packet will arrive with the uint64_t size at the head
                 if (bytes_received_total >= sizeof(size_t))
                 {
-                    uint64_t total_size = *(uint64_t*)socket->receive_buffer.get_buf();
-                    if (bytes_received_total < total_size)
+                    uint64_t package_size = *(uint64_t*)socket->receive_buffer.get_buf();
+                    if (bytes_received_total < package_size)
                     {
-                        if (socket->receive_buffer.size() < total_size)
+                        if (socket->receive_buffer.size() < package_size)
                         {
-                            socket->receive_buffer.resize(total_size);
+                            socket->receive_buffer.resize(package_size);
                         }
                     }
                     else
                     {
-                        ASSERT(total_size == socket->receive_buffer.get_received_bytes(), "bytes count don't match");
-                        LOG("A complete packet is received, size=%lld", total_size);
-                        // have received the whole message, pack it into MessagePtr and start receiving next one
-                        MessagePtr message(new MessageType);
-                        message->set_remote_addr(socket->sock->remote_endpoint());
-                        message->get_stream_buffer().set_buf(
-                            (char*)socket->receive_buffer.renew_buf(RECEIVE_BUFFER_SIZE), total_size);
-                        uint64_t size;
-                        // remove the head uint64_t before passing it to RPC
-                        message->get_stream_buffer().read(size);
-                        receive_queue_.push(message);
+                        if (bytes_received_total == package_size)
+                        {
+                            LOG("A complete packet is received, size=%lld", package_size);
+                            // have received the whole message, pack it into MessagePtr and start receiving next one
+                            MessagePtr message(new MessageType);
+                            message->set_remote_addr(socket->sock->remote_endpoint());
+                            message->get_stream_buffer().set_buf(
+                                (char*)socket->receive_buffer.renew_buf(RECEIVE_BUFFER_SIZE), package_size);
+                            uint64_t size;
+                            // remove the head uint64_t before passing it to RPC
+                            message->get_stream_buffer().read(size);
+                            receive_queue_.push(message);
+                        }
+                        else
+                        {
+                            // it is possible that we have received multiple packages, 
+                            // in which case bytes_received_total > package_size
+                            char * received_buf = (char*)socket->receive_buffer.get_buf();
+                            uint64_t package_start = 0;
+                            uint64_t bytes_left = bytes_received_total;
+                            while (true)
+                            {
+                                LOG("A complete packet is received, size=%lld", package_size);
+                                char * package_buf = new char[package_size];
+                                memcpy(package_buf, received_buf + package_start, package_size);
+                                MessagePtr message(new MessageType);
+                                message->set_remote_addr(socket->sock->remote_endpoint());
+                                message->get_stream_buffer().set_buf(package_buf, package_size);
+                                uint64_t size;
+                                // remove the head uint64_t before passing it to RPC
+                                message->get_stream_buffer().read(size);
+                                receive_queue_.push(message);
+                                package_start += package_size;
+                                bytes_left -= package_size;
+                                if (bytes_left < sizeof(uint64_t)
+                                    || bytes_left < *(uint64_t*)(received_buf + package_start))
+                                {
+                                    break;
+                                }
+                            }
+                            // ok, now we have something left in the buffer, but not a whole package
+                            // we should move the content to the front of the buffer and continue
+                            // receiving messages
+                            socket->receive_buffer.compact(package_start);
+                        }
                     }
                 }
                 // no matter what happended, we should post a new read request

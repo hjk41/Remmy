@@ -274,6 +274,16 @@ namespace TinyRPC
             received_bytes_ = 0;
             return b;
         }
+
+        // move the 
+        void compact(uint64_t offset)
+        {
+            ASSERT(offset <= received_bytes_, 
+                "compacting beyond received bytes: offset = %lld, received_bytes = %lld",
+                offset, received_bytes_);
+            received_bytes_ -= offset;
+            memmove(buf_, (char*)buf_ + offset, received_bytes_);
+        }
     private:
         ResizableBuffer(const ResizableBuffer &){};
         ResizableBuffer & operator=(const ResizableBuffer &){ return *this; }
