@@ -24,14 +24,15 @@ namespace TinyRPC
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
 
-	    TinyCommBase(){};
-	    virtual ~TinyCommBase(){};
+        TinyCommBase(){};
+        virtual ~TinyCommBase(){};
 
-	    // start polling for messages
-	    virtual void start()=0;
-	    // send/receive
+        // start polling for messages
+        virtual void start()=0;
+        // send/receive
         virtual CommErrors send(const MessagePtr &) = 0;
         virtual MessagePtr recv() = 0;
+        virtual void WakeReceivingThreadsForExit() = 0;
     };
 
     template<class EndPointT>

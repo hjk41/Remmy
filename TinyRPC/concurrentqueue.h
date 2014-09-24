@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <list>
 #include <mutex>
+#include <atomic>
 
 namespace TinyRPC
 {
@@ -11,7 +12,7 @@ namespace TinyRPC
     class ConcurrentQueue
     {
     public:
-        explicit ConcurrentQueue()
+        explicit ConcurrentQueue() : m_exitNow(false)
         {
         }
 
@@ -22,15 +23,17 @@ namespace TinyRPC
             m_cv.notify_one();
         }
 
-        T pop()
+        bool pop(T & rv)
         {
             std::unique_lock<std::mutex> lk(m_mutex);
-            while (m_queue.empty())
+            while (m_queue.empty() && !m_exitNow)
                 m_cv.wait(lk);
-            assert(!m_queue.empty());
-            T rv = m_queue.front();
+            if (m_exitNow)
+                return false;
+            ASSERT(!m_queue.empty(), "");
+            rv = m_queue.front();
             m_queue.pop_front();
-            return rv;
+            return true;
         }
 
         std::list<T> popAll()
@@ -41,15 +44,22 @@ namespace TinyRPC
             return rv;
         }
 
-		size_t size()
-		{
-			std::lock_guard<std::mutex> lk(m_mutex);
-			return m_queue.size();
-		}
+        size_t size()
+        {
+            std::lock_guard<std::mutex> lk(m_mutex);
+            return m_queue.size();
+        }
 
+        void signalForKill()
+        {
+            std::lock_guard<std::mutex> lk(m_mutex);
+            m_exitNow = true;
+            m_cv.notify_all();
+        }
     private:
         std::list<T> m_queue;
         std::mutex m_mutex;
         std::condition_variable m_cv;
+        std::atomic<bool> m_exitNow;
     };
 }

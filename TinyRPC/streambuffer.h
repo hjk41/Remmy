@@ -54,7 +54,7 @@ namespace TinyRPC
         {
         }
 
-		StreamBuffer(size_t size)
+        StreamBuffer(size_t size)
             : buf_((char*)malloc(size)),
             const_buf_(false),
             pend_(size),
@@ -67,8 +67,8 @@ namespace TinyRPC
         {
             if (!const_buf_)
             {
-				free(buf_);
-			}
+                free(buf_);
+            }
         }
 
         void swap(StreamBuffer & rhs)
@@ -191,7 +191,7 @@ namespace TinyRPC
             memcpy(buf_ + gpos_, buf, size);
         }
 
-	public:
+    public:
         StreamBuffer(const StreamBuffer & rhs){};
         StreamBuffer & operator = (const StreamBuffer & rhs){ return *this; }
 
@@ -200,8 +200,8 @@ namespace TinyRPC
         size_t pend_;   // end of buffer0
         size_t gpos_;   // start of get
         size_t ppos_;   // start of put
-		
-		friend class TinyCommAsio;
+        
+        friend class TinyCommAsio;
     };
 
     class ResizableBuffer

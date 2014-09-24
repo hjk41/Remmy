@@ -11,8 +11,8 @@ namespace TinyRPC
     {
     public:
         virtual uint32_t get_id() = 0;
-		
-		virtual void marshall_request(StreamBuffer &) = 0;
+        
+        virtual void marshall_request(StreamBuffer &) = 0;
 
         virtual void marshall_response(StreamBuffer &) = 0;
 
@@ -20,15 +20,15 @@ namespace TinyRPC
 
         virtual void unmarshall_response(StreamBuffer &) = 0;
 
-		virtual void handle_request(void *server) = 0;
+        virtual void handle_request(void *server) = 0;
     };
 
     template<class RequestT, class ResponseT>
     class ProtocolTemplate : public ProtocolBase
     {
     public:
-		RequestT request;
-		ResponseT response;
+        RequestT request;
+        ResponseT response;
 
         virtual void marshall_request(StreamBuffer & buf) override
         {
@@ -38,7 +38,7 @@ namespace TinyRPC
         void marshall_response(StreamBuffer & buf) override
         {
             Serialize(buf, response);
-		}
+        }
 
         virtual void unmarshall_request(StreamBuffer & buf) override
         {

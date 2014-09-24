@@ -3,35 +3,29 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <set>
 #include <thread>
 #include <vector>
 
 #include "protocol.h"
-#include "tinycomm.h"
 #include "sleeplist.h"
-
+#include "tinycomm.h"
+#include "tinydatatypes.h"
 
 namespace TinyRPC
 {
-    enum class TinyErrorCode
-    {
-	    SUCCESS = 0,
-        FAIL_SEND = 1,
-        TIMEOUT = 2,
-	    KILLING_THREADS = 3
-    };
 
     class RequestFactoryBase
     {
     public:
-	    virtual ProtocolBase * create_protocol()=0;
+        virtual ProtocolBase * create_protocol()=0;
     };
 
     template<class T>
     class RequestFactory : public RequestFactoryBase
     {
     public:
-	    virtual T * create_protocol(){return new T;};
+        virtual T * create_protocol(){return new T;};
     };
 
     typedef std::map<uint32_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
@@ -39,7 +33,7 @@ namespace TinyRPC
     template<class EndPointT>
     class TinyRPCStub
     {
-	    typedef Message<EndPointT> MessageType;
+        typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
         const static uint32_t RPC_ASYNC = 1;
         const static uint32_t RPC_SYNC = 0;
@@ -55,7 +49,8 @@ namespace TinyRPC
         TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers)
             : _comm(comm),
             _seq_num(1),
-            _worker_threads(num_workers)
+            _worker_threads(num_workers),
+            _exit_now_(false)
         {
             _comm->start();
             // start threads
@@ -63,25 +58,34 @@ namespace TinyRPC
             {
                 _worker_threads[i] = std::thread([this, i]()
                 {
-                    while (true)
+                    SetThreadName("RPC worker ", i);
+                    while (!_exit_now_)
                     {
                         MessagePtr msg = _comm->recv();
-                        ASSERT(msg != nullptr, "worker %d received a null msg", i);
+                        if (msg == nullptr)
+                        {
+                            LOG("RPC worker %d exiting", i);
+                            return;
+                        }
                         handle_message(msg);
                     }
                 });
             }
         }
 
-	    ~TinyRPCStub()
+        ~TinyRPCStub()
         {
-            //TODO: should we kill the worker threads?
+            _comm->WakeReceivingThreadsForExit();
+            for (auto & thread : _worker_threads)
+            {
+                thread.join();
+            }
         }
 
-	    // calls a remote function
+        // calls a remote function
         TinyErrorCode rpc_call(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false)
         {
-		    MessagePtr message(new MessageType);
+            MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
             header.seq_num = get_new_seq_num();
@@ -95,6 +99,8 @@ namespace TinyRPC
             if (!is_async)
             {
                 _sleeping_list.add_event(header.seq_num, &protocol);
+                LockGuard l(_waiting_event_lock);
+                _ep_waiting_events[ep].insert(header.seq_num);
             }
             CommErrors err = _comm->send(message);
             if (err != CommErrors::SUCCESS)
@@ -109,35 +115,54 @@ namespace TinyRPC
                 return TinyErrorCode::SUCCESS;
             }
             
-            bool ret = _sleeping_list.wait_for_response(header.seq_num, timeout);
-            if (ret == true)
+            TinyErrorCode c = _sleeping_list.wait_for_response(header.seq_num, timeout);
             {
-                return TinyErrorCode::SUCCESS;
-            }
-            else
-            {
-                return TinyErrorCode::TIMEOUT;
-            }
+                LockGuard l(_waiting_event_lock);
+                _ep_waiting_events[ep].erase(header.seq_num);
+            }            
+            return c;
         }
 
-	    template<class T>
+        template<class T>
         void RegisterProtocol(void * app_server)
-	    {
-		    T * t = new T;
-		    uint32_t id = t->get_id();
-		    delete t;
-		    if (_protocol_factory.find(id) != _protocol_factory.end())
-		    {
-			    // ID() should be unique, and should not be re-registered
+        {
+            T * t = new T;
+            uint32_t id = t->get_id();
+            delete t;
+            if (_protocol_factory.find(id) != _protocol_factory.end())
+            {
+                // ID() should be unique, and should not be re-registered
                 ABORT("Duplicate protocol id detected: %d. "
                     "Did you registered the same protocol multiple times?", id);
-		    }
-		    _protocol_factory[id] = make_pair(new RequestFactory<T>(), app_server);
-	    }
+            }
+            _protocol_factory[id] = std::make_pair(new RequestFactory<T>(), app_server);
+        }
     private:
         // handle messages, called by WorkerFunction
         void handle_message(MessagePtr & msg)
         {
+            if (msg->get_status() != TinyErrorCode::SUCCESS)
+            {
+                WARN("RPC get a message of communication failure of machine %s, status=%d",
+                    EPToString(msg->get_remote_addr()).c_str(), msg->get_status());
+                EndPointT & ep = msg->get_remote_addr();
+                std::set<int64_t> events;
+                {
+                    LockGuard l(_waiting_event_lock);
+                    auto it = _ep_waiting_events.find(ep);
+                    if (it != _ep_waiting_events.end())
+                    {
+                        events = it->second;
+                        _ep_waiting_events.erase(it);
+                    }
+                }
+                for (auto & event : events)
+                {
+                    _sleeping_list.signal_server_fail(event);
+                }
+                return;
+            }
+
             MessageHeader header;
             Deserialize(msg->get_stream_buffer(), header);
             LOG("Handle message, seq=%lld, pid=%d, async=%d", 
@@ -192,16 +217,20 @@ namespace TinyRPC
             return _seq_num++;
         }
     private:
-	    TinyCommBase<EndPointT> * _comm;
-	    // for request handling
-	    RequestFactories _protocol_factory;
-	    // threads
-	    std::vector<std::thread> _worker_threads;
-	    // sequence number
-	    int64_t _seq_num;
-	    std::mutex _seq_lock;
-	    // waiting queue
-	    SleepingList<ProtocolBase> _sleeping_list;
-    };	
+        TinyCommBase<EndPointT> * _comm;
+        // for request handling
+        RequestFactories _protocol_factory;
+        // threads
+        std::vector<std::thread> _worker_threads;
+        // sequence number
+        int64_t _seq_num;
+        std::mutex _seq_lock;
+        // waiting queue
+        SleepingList<ProtocolBase> _sleeping_list;
+        std::mutex _waiting_event_lock;
+        std::unordered_map<EndPointT, std::set<int64_t>> _ep_waiting_events;
+        // exit flag
+        std::atomic<bool> _exit_now_;
+    };    
 };
 
