@@ -302,7 +302,7 @@ namespace TinyRPC
                 if (bytes_received_total >= sizeof(size_t))
                 {
                     uint64_t package_size = *(uint64_t*)socket->receive_buffer.get_buf();
-                    ASSERT(package_size < 1024 * 1024 * 1024, "alarmingly large package_size: %lld", package_size);
+                    ASSERT(package_size < (size_t)16 * 1024 * 1024 * 1024, "alarmingly large package_size: %lld", package_size);
                     if (bytes_received_total < package_size)
                     {
                         if (socket->receive_buffer.size() < package_size)
