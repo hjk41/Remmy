@@ -82,7 +82,7 @@ public:
         response = master->handle(request);
     }
 
-    std::vector<char> request;
+    std::vector<int> request;
     int response;
 };
 
@@ -105,7 +105,7 @@ int main(int argc, char ** argv)
 	p.request = 1000;
 	cout << "the request = " << p.request << endl;
 	cout << "rpc call" << endl;
-	boost::asio::ip::address addr;
+	asio::ip::address addr;
 	asioEP ep(addr.from_string("127.0.0.1"), TEST_PORT);
 	rpc->rpc_call(ep, p);
 	cout << "the response = " << p.response << endl;
@@ -129,7 +129,7 @@ int main(int argc, char ** argv)
     }
 
 	int vectorSize = atoi(argv[4]);
-	int nIter = aoti(argv[5]);
+	int nIter = atoi(argv[5]);
 	cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
 
     if (string(argv[1]) == "m")
@@ -154,7 +154,7 @@ int main(int argc, char ** argv)
 
         VectorProtocol vp;
         vp.request.resize(25);
-        boost::asio::ip::address addr;
+        asio::ip::address addr;
         asioEP ep(addr.from_string(argv[2]), port);
         map<uint64_t, int> hist;
         LARGE_INTEGER freq;
@@ -167,8 +167,7 @@ int main(int argc, char ** argv)
 //            hist[1.8*t]++;
         }
 		QueryPerformanceCounter(&end);
-		double t = double(end.QuadPart - start.QuadPart) / freq.QuadPart);
-		cout << 
+		double t = double(end.QuadPart - start.QuadPart) / freq.QuadPart;
 
 		/*
         ofstream out("out.txt");

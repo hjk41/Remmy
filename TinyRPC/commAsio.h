@@ -1,8 +1,6 @@
 #pragma once 
 #include <array>
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-#include <boost/array.hpp>
+#include "asio/asio.hpp"
 #include <exception>
 #include <string>
 #include <thread>
@@ -18,10 +16,10 @@
 #define LOGGING_COMPONENT "CommAsio"
 
 template<>
-class std::hash<boost::asio::ip::tcp::endpoint>
+class std::hash<asio::ip::tcp::endpoint>
 {
 public:
-    size_t operator() (const boost::asio::ip::tcp::endpoint & ep)
+    size_t operator() (const asio::ip::tcp::endpoint & ep) const
     {
         return std::hash<std::string>()(ep.address().to_string());
     }
@@ -29,16 +27,16 @@ public:
 
 namespace TinyRPC
 {
-    typedef boost::asio::ip::tcp::endpoint asioEP;
-    typedef boost::asio::ip::tcp::socket asioSocket;
-    typedef boost::asio::ip::tcp::acceptor asioAcceptor;
-    typedef boost::asio::io_service asioService;
-    typedef boost::asio::strand asioStrand;
-    typedef boost::asio::ip::address asioAddr;
+    typedef asio::ip::tcp::endpoint asioEP;
+    typedef asio::ip::tcp::socket asioSocket;
+    typedef asio::ip::tcp::acceptor asioAcceptor;
+    typedef asio::io_service asioService;
+    typedef asio::strand asioStrand;
+    typedef asio::ip::address asioAddr;
     typedef std::shared_ptr<std::condition_variable> cvPtr;
     typedef std::lock_guard<std::mutex> LockGuard;
-    typedef boost::asio::mutable_buffer asioMutableBuffer;
-    typedef std::shared_ptr<boost::asio::mutable_buffer> asioBufferPtr;
+    typedef asio::mutable_buffer asioMutableBuffer;
+    typedef std::shared_ptr<asio::mutable_buffer> asioBufferPtr;
 
     template<>
     inline const std::string EPToString<asioEP>(const asioEP & ep)
@@ -87,9 +85,9 @@ namespace TinyRPC
             try
             {
                 acceptor_ = std::make_shared<asioAcceptor>(io_service_);
-                acceptor_->open(boost::asio::ip::tcp::v4());
-                acceptor_->set_option(boost::asio::socket_base::reuse_address(false));
-                acceptor_->bind(asioEP(boost::asio::ip::tcp::v4(), port));
+                acceptor_->open(asio::ip::tcp::v4());
+                acceptor_->set_option(asio::socket_base::reuse_address(false));
+                acceptor_->bind(asioEP(asio::ip::tcp::v4(), port));
             }
             catch (std::exception & e)
             {
@@ -144,7 +142,7 @@ namespace TinyRPC
                     SetThreadName("asio worker", i);
                     try
                     {
-                        boost::asio::io_service::work work(io_service_);
+                        asio::io_service::work work(io_service_);
                         io_service_.run();
                     }
                     catch (std::exception & e)
@@ -172,13 +170,13 @@ namespace TinyRPC
                     return CommErrors::SEND_ERROR;
                 }
                 LockGuard sl(socket->lock);
-                boost::asio::write(*(socket->sock),
-                    boost::asio::buffer(msg->get_stream_buffer().get_buf(), msg->get_stream_buffer().get_size()));
+                asio::write(*(socket->sock),
+                    asio::buffer(msg->get_stream_buffer().get_buf(), msg->get_stream_buffer().get_size()));
             }
             catch (std::exception & e)
             {
                 WARN("communication error occurred: %s", e.what());
-                boost::system::error_code err;
+                asio::error_code err;
                 if (socket)
                 {
                     handle_failure(socket, err);
@@ -265,8 +263,8 @@ namespace TinyRPC
                 void * buf = socket->receive_buffer.get_writable_buf();
                 size_t size = socket->receive_buffer.get_writable_size();
                 ASSERT(buf != nullptr && size != 0, "no buf space left, buf=%p, size=%llu", buf, size);
-                socket->sock->async_read_some(boost::asio::buffer(buf, size),
-                    [this, socket](const boost::system::error_code& ec, std::size_t bytes_transferred)
+                socket->sock->async_read_some(asio::buffer(buf, size),
+                    [this, socket](const asio::error_code& ec, std::size_t bytes_transferred)
                 {
                     handle_read(socket, ec, bytes_transferred);
                 });
@@ -281,7 +279,7 @@ namespace TinyRPC
             }
         }
 
-        void handle_read(SocketBuffersPtr socket, const boost::system::error_code& ec, std::size_t bytes_transferred)
+        void handle_read(SocketBuffersPtr socket, const asio::error_code & ec, std::size_t bytes_transferred)
         {
             if (exit_now_)
                 return;
@@ -366,7 +364,7 @@ namespace TinyRPC
             }
         }
 
-        void handle_failure(SocketBuffersPtr socket, const boost::system::error_code& ec)
+        void handle_failure(SocketBuffersPtr socket, const asio::error_code& ec)
         {
             WARN("a network failure occurred, ec=%s", ec.message().c_str());
             LockGuard l(sockets_lock_);
