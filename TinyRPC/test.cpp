@@ -25,7 +25,15 @@ int main()
 #include "commAsio.h"
 #include "tinyrpc.h"
 using namespace TinyRPC;
-#include <Windows.h>
+
+static inline double GetTime() {
+    using namespace std::chrono;
+    high_resolution_clock::duration tp =
+        high_resolution_clock::now().time_since_epoch();
+    return (double)tp.count() * high_resolution_clock::period::num
+        / high_resolution_clock::period::den;
+}
+
 class EchoProtocol : public ProtocolTemplate<int, int>
 {
 public:
@@ -41,10 +49,10 @@ public:
 class Master
 {
 public:
-    int handle(const std::vector<int> & v)
+    size_t handle(const std::vector<char> & v)
     {
-        //cout << "handling a vector of size " << v.size() << endl;
-        return (int)v.size();
+        cout << "handling a vector of size " << v.size() << endl;
+        return v.size();
     }
 };
 
@@ -82,8 +90,8 @@ public:
         response = master->handle(request);
     }
 
-    std::vector<int> request;
-    int response;
+    std::vector<char> request;
+    size_t response;
 };
 
 const int TEST_PORT = 8082;
@@ -156,39 +164,20 @@ int main(int argc, char ** argv)
         rpc->RegisterProtocol<VectorProtocol>(&master);
 
         VectorProtocol vp;
-        vp.request.resize(25);
+        vp.request.resize(vectorSize);
         asio::ip::address addr;
         asioEP ep(addr.from_string(argv[2]), port);
-        map<uint64_t, int> hist;
-        LARGE_INTEGER freq;
-        QueryPerformanceFrequency(&freq);
-		LARGE_INTEGER start, end;
-		QueryPerformanceCounter(&start);
+        double t1 = GetTime();
         for (int i = 0; i < nIter; i++)
         {          
             rpc->rpc_call(ep, vp);
-//            hist[1.8*t]++;
+            cout << vp.response << endl;
         }
-		QueryPerformanceCounter(&end);
-		double t = double(end.QuadPart - start.QuadPart) / freq.QuadPart;
-        cout << t << endl;
-        #if ASIO_HAS_STD_ADDRESSOF
-        cout << "has";
-        #endif
-		/*
-        ofstream out("out.txt");
-        int sum = 0;
-        for (auto & kv : hist)
-        {
-            sum += kv.second;
-            out << kv.first << "\t" << sum << endl;
-        }
-		*/
+        double t2 = GetTime();
+        cout << double(vectorSize) / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;
     }
-
     
 #endif
-
 
     return 0;
 }
