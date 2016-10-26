@@ -32,7 +32,7 @@ namespace TinyRPC
         // send/receive
         virtual CommErrors send(const MessagePtr &) = 0;
         virtual MessagePtr recv() = 0;
-        virtual void WakeReceivingThreadsForExit() = 0;
+        virtual void wake_threads_for_exit() = 0;
     };
 
     template<class EndPointT>

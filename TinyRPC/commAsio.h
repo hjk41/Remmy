@@ -97,7 +97,7 @@ namespace TinyRPC
 
         virtual ~TinyCommAsio()
         {
-            WakeReceivingThreadsForExit();
+            wake_threads_for_exit();
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
@@ -120,7 +120,7 @@ namespace TinyRPC
             }
         };
 
-        virtual void WakeReceivingThreadsForExit()
+        virtual void wake_threads_for_exit()
         {
             receive_queue_.signalForKill();
         }

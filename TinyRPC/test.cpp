@@ -88,7 +88,10 @@ public:
 
 const int TEST_PORT = 8082;
 
-
+int testAsio(int argc, char** argv) {
+    
+    return 0;
+}
 
 int main(int argc, char ** argv)
 {
@@ -168,7 +171,10 @@ int main(int argc, char ** argv)
         }
 		QueryPerformanceCounter(&end);
 		double t = double(end.QuadPart - start.QuadPart) / freq.QuadPart;
-
+        cout << t << endl;
+        #if ASIO_HAS_STD_ADDRESSOF
+        cout << "has";
+        #endif
 		/*
         ofstream out("out.txt");
         int sum = 0;

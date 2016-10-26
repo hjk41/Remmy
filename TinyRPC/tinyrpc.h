@@ -75,7 +75,7 @@ namespace TinyRPC
 
         ~TinyRPCStub()
         {
-            _comm->WakeReceivingThreadsForExit();
+            _comm->wake_threads_for_exit();
             for (auto & thread : _worker_threads)
             {
                 thread.join();
