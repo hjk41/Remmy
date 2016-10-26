@@ -9,7 +9,19 @@
 namespace TinyRPC
 {
 
-    template<typename T, bool Enable = std::is_trivially_copyable<T>::value>
+#ifdef _WIN32
+    template<typename T>
+    struct TriviallyCopyable {
+        static const bool value = std::is_trivially_copyable<T>::value;
+    };
+#else
+    template<typename T>
+    struct TriviallyCopyable {
+        static const bool value = std::has_trivial_copy_constructor<T>::value;
+    };
+#endif
+
+    template<typename T, bool Enable = TriviallyCopyable<T>::value>
     class Serializer
     {
         // If you get "unresolved external symbol" error, it means you 
@@ -109,7 +121,7 @@ namespace TinyRPC
     // specially for vector
     // If T is not trivially copyable, we must copy them one-by-one
     // If T is trivially copyable, we copy the whole vector at once
-    template<typename T, bool Enable = std::is_trivially_copyable<T>::value>
+    template<typename T, bool Enable = TriviallyCopyable<T>::value>
     class VectorSerializer
     {
     public:

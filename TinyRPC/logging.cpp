@@ -1,3 +1,4 @@
+#include <thread>
 #include "logging.h"
 
 namespace TinyRPC

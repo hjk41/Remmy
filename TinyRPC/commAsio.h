@@ -211,7 +211,7 @@ namespace TinyRPC
                         {
                             return;
                         }
-                        asioEP & remote = sock->remote_endpoint();
+                        const asioEP & remote = sock->remote_endpoint();
                         LockGuard l(sockets_lock_);
                         if (exit_now_)
                         {
@@ -292,7 +292,7 @@ namespace TinyRPC
             else
             {
                 LockGuard sl(socket->lock);
-                asioEP & remote = socket->sock->remote_endpoint();
+                const asioEP & remote = socket->sock->remote_endpoint();
                 LOG("received %llu bytes from socket", bytes_transferred);
                 socket->receive_buffer.mark_receive_bytes(bytes_transferred);
                 size_t bytes_received_total = socket->receive_buffer.get_received_bytes();

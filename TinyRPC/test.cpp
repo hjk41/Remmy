@@ -133,30 +133,41 @@ int main(int argc, char ** argv)
     rpc->rpc_call(ep, vp);
     cout << "response = " << vp.response << endl;
 #else
-    if (argc != 6)
+    if (argc < 2)
     {
         cout << "usage: ./testRPC m/s ip port vectorSize nIter" << endl;
         return 1;
     }
 
-	int vectorSize = atoi(argv[4]);
-	int nIter = atoi(argv[5]);
-	cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
-
     if (string(argv[1]) == "m")
     {
-        int port = atoi(argv[3]);
+        if (argc < 3) {
+            cout << "usage: ./testRPC m port" << endl;
+            return 1;
+        }
+        int port = atoi(argv[2]);
         TinyCommBase<asioEP> *test = new TinyCommAsio(port);
         TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
 
         Master master;
         rpc->RegisterProtocol<VectorProtocol>(&master);
+	cout << "listening on port " << port << endl;
         char c;
         cin >> c;
     }
     else
     {
+        if (argc < 6) {
+            cout << "usage: ./testRPC s ip port vectorSize nIter" << endl;
+            return 1;
+        }
+        asio::ip::address addr;
         int port = atoi(argv[3]);
+        asioEP ep(addr.from_string(argv[2]), port);
+	int vectorSize = atoi(argv[4]);
+	int nIter = atoi(argv[5]);
+	cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
+
         TinyCommBase<asioEP> *test = new TinyCommAsio(port + 10);
         TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
 
@@ -165,8 +176,6 @@ int main(int argc, char ** argv)
 
         VectorProtocol vp;
         vp.request.resize(vectorSize);
-        asio::ip::address addr;
-        asioEP ep(addr.from_string(argv[2]), port);
         double t1 = GetTime();
         for (int i = 0; i < nIter; i++)
         {          
