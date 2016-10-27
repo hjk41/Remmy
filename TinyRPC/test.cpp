@@ -183,7 +183,7 @@ int main(int argc, char ** argv)
             cout << vp.response << endl;
         }
         double t2 = GetTime();
-        cout << double(vectorSize) / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;
+        cout << double(vectorSize) * nIter / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;
     }
     
 #endif
