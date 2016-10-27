@@ -17,7 +17,7 @@ namespace TinyRPC
 #define LOG_ERROR 2
 #define LOG_ASSERT 3
 
-#define LOG_LEVEL 0
+#define LOG_LEVEL 1
 
 
     extern std::mutex * __logLock;
