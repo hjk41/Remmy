@@ -331,6 +331,7 @@ namespace TinyRPC
                             uint64_t size;
                             // remove the head uint64_t before passing it to RPC
                             message->get_stream_buffer().read(size);
+                            message->set_status(TinyErrorCode::SUCCESS);
                             receive_queue_.push(message);
                         }
                         else
@@ -353,6 +354,7 @@ namespace TinyRPC
                                 uint64_t size;
                                 // remove the head uint64_t before passing it to RPC
                                 message->get_stream_buffer().read(size);
+                                message->set_status(TinyErrorCode::SUCCESS);
                                 receive_queue_.push(message);
                                 package_start += package_size;
                                 bytes_left -= package_size;

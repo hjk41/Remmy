@@ -11,6 +11,8 @@ template<class EndPointT>
 class Message
 {
 public:
+    Message() : status_(TinyErrorCode::SUCCESS){}
+
     void set_remote_addr(const EndPointT & addr)
     {
         remote_addr_ = addr;
