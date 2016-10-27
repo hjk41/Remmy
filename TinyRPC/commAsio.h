@@ -212,6 +212,7 @@ namespace TinyRPC
                             return;
                         }
                         const asioEP & remote = sock->remote_endpoint();
+                        LOG("new client connected: %s", EPToString(remote).c_str());
                         LockGuard l(sockets_lock_);
                         if (exit_now_)
                         {
