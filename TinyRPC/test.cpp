@@ -146,12 +146,12 @@ int main(int argc, char ** argv)
             return 1;
         }
         int port = atoi(argv[2]);
-        TinyCommBase<asioEP> *test = new TinyCommAsio(port);
-        TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
+        TinyCommAsio test(port);
+        TinyRPCStub<AsioEP> rpc(&test, 2);
 
         Master master;
-        rpc->RegisterProtocol<VectorProtocol>(&master);
-	cout << "listening on port " << port << endl;
+        rpc.RegisterProtocol<VectorProtocol>(&master);
+        cout << "listening on port " << port << endl;
         char c;
         cin >> c;
     }
@@ -163,23 +163,23 @@ int main(int argc, char ** argv)
         }
         asio::ip::address addr;
         int port = atoi(argv[3]);
-        asioEP ep(addr.from_string(argv[2]), port);
-	int vectorSize = atoi(argv[4]);
-	int nIter = atoi(argv[5]);
-	cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
+        AsioEP ep(addr.from_string(argv[2]), port);
+        int vectorSize = atoi(argv[4]);
+        int nIter = atoi(argv[5]);
+        cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
 
-        TinyCommBase<asioEP> *test = new TinyCommAsio(port + 10);
-        TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
+        TinyCommAsio test(0);
+        TinyRPCStub<AsioEP> rpc(&test, 2);
 
         Master master;
-        rpc->RegisterProtocol<VectorProtocol>(&master);
+        rpc.RegisterProtocol<VectorProtocol>(&master);
 
         VectorProtocol vp;
         vp.request.resize(vectorSize);
         double t1 = GetTime();
         for (int i = 0; i < nIter; i++)
         {          
-            rpc->rpc_call(ep, vp);
+            rpc.rpc_call(ep, vp);
             cout << vp.response << endl;
         }
         double t2 = GetTime();

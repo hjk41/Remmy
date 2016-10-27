@@ -46,13 +46,13 @@ namespace TinyRPC
         };
 
     public:
-        TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers)
+        TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
             : _comm(comm),
             _seq_num(1),
             _worker_threads(num_workers),
             _exit_now_(false)
         {
-            _comm->start();
+            _comm->Start();
             // start threads
             for (int i = 0; i< num_workers; i++)
             {
@@ -61,7 +61,7 @@ namespace TinyRPC
                     SetThreadName("RPC worker ", i);
                     while (!_exit_now_)
                     {
-                        MessagePtr msg = _comm->recv();
+                        MessagePtr msg = _comm->Recv();
                         if (msg == nullptr)
                         {
                             LOG("RPC worker %d exiting", i);
@@ -75,7 +75,7 @@ namespace TinyRPC
 
         ~TinyRPCStub()
         {
-            _comm->wake_threads_for_exit();
+            _comm->KillWorkerThreads();
             for (auto & thread : _worker_threads)
             {
                 thread.join();
@@ -102,7 +102,7 @@ namespace TinyRPC
                 LockGuard l(_waiting_event_lock);
                 _ep_waiting_events[ep].insert(header.seq_num);
             }
-            CommErrors err = _comm->send(message);
+            CommErrors err = _comm->Send(message);
             if (err != CommErrors::SUCCESS)
             {
                 WARN("error during rpc_call-send: %d", err);
@@ -203,7 +203,7 @@ namespace TinyRPC
                     out_message->set_remote_addr(msg->get_remote_addr());
                     LOG("responding to %s with seq=%d, protocol_id=%d\n", 
                         EPToString(out_message->get_remote_addr()).c_str(), header.seq_num, header.protocol_id);
-                    _comm->send(out_message);
+                    _comm->Send(out_message);
                 }
                 delete protocol;
             }

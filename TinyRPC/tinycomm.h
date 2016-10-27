@@ -28,11 +28,11 @@ namespace TinyRPC
         virtual ~TinyCommBase(){};
 
         // start polling for messages
-        virtual void start()=0;
+        virtual void Start()=0;
         // send/receive
-        virtual CommErrors send(const MessagePtr &) = 0;
-        virtual MessagePtr recv() = 0;
-        virtual void wake_threads_for_exit() = 0;
+        virtual CommErrors Send(const MessagePtr &) = 0;
+        virtual MessagePtr Recv() = 0;
+        virtual void KillWorkerThreads() = 0;
     };
 
     template<class EndPointT>
@@ -40,5 +40,4 @@ namespace TinyRPC
     {
         return std::to_string(ep);
     }
-
 };

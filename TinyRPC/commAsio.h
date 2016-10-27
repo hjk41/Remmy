@@ -27,19 +27,19 @@ public:
 
 namespace TinyRPC
 {
-    typedef asio::ip::tcp::endpoint asioEP;
-    typedef asio::ip::tcp::socket asioSocket;
-    typedef asio::ip::tcp::acceptor asioAcceptor;
-    typedef asio::io_service asioService;
-    typedef asio::strand asioStrand;
-    typedef asio::ip::address asioAddr;
-    typedef std::shared_ptr<std::condition_variable> cvPtr;
+    typedef asio::ip::tcp::endpoint AsioEP;
+    typedef asio::ip::tcp::socket AsioSocket;
+    typedef asio::ip::tcp::acceptor AsioAcceptor;
+    typedef asio::io_service AsioService;
+    typedef asio::strand AsioStrand;
+    typedef asio::ip::address AsioAddr;
+    typedef std::shared_ptr<std::condition_variable> CvPtr;
     typedef std::lock_guard<std::mutex> LockGuard;
-    typedef asio::mutable_buffer asioMutableBuffer;
-    typedef std::shared_ptr<asio::mutable_buffer> asioBufferPtr;
+    typedef asio::mutable_buffer AsioMutableBuffer;
+    typedef std::shared_ptr<asio::mutable_buffer> AsioBufferPtr;
 
     template<>
-    inline const std::string EPToString<asioEP>(const asioEP & ep)
+    inline const std::string EPToString<AsioEP>(const AsioEP & ep)
     {
         return ep.address().to_string() + ":" + std::to_string(ep.port());
     }
@@ -47,13 +47,13 @@ namespace TinyRPC
     class EPHasher
     {
     public:
-        size_t operator()(const asioEP & ep)
+        size_t operator()(const AsioEP & ep)
         {
             return std::hash<std::string>()(ep.address().to_string());
         }
     };
 
-    class TinyCommAsio : public TinyCommBase<asioEP>
+    class TinyCommAsio : public TinyCommBase<AsioEP>
     {
         const static int NUM_WORKERS = 2;
         const static int RECEIVE_BUFFER_SIZE = 1024;
@@ -65,29 +65,36 @@ namespace TinyRPC
             {
                 delete sock;
             }
-            asioSocket * sock;
+            AsioSocket * sock;
             ResizableBuffer receive_buffer;            
             std::mutex lock;
-            asioEP target;
+            AsioEP target;
         private:
             SocketBuffers(const SocketBuffers &);
             SocketBuffers & operator=(const SocketBuffers&);
         };
 
         typedef std::shared_ptr<SocketBuffers> SocketBuffersPtr;
-        typedef std::unordered_map<asioEP, SocketBuffersPtr> EPSocketMap;
+        typedef std::unordered_map<AsioEP, SocketBuffersPtr> EPSocketMap;
     public:
-        TinyCommAsio(int port)
+        /*
+        * \brief constructs a asio communicator, listening on a port
+        *
+        * \param port: if not 0, the communicator will wait for connections on this 
+        *              port. Otherwise, communicator will not accept any connections.
+        */
+        TinyCommAsio(int port = 0)
             : started_(false),
             port_(port),
             exit_now_(false)
         {
+            if (port == 0) return;
             try
             {
-                acceptor_ = std::make_shared<asioAcceptor>(io_service_);
+                acceptor_ = std::make_shared<AsioAcceptor>(io_service_);
                 acceptor_->open(asio::ip::tcp::v4());
                 acceptor_->set_option(asio::socket_base::reuse_address(false));
-                acceptor_->bind(asioEP(asio::ip::tcp::v4(), port));
+                acceptor_->bind(AsioEP(asio::ip::tcp::v4(), port));
             }
             catch (std::exception & e)
             {
@@ -97,7 +104,7 @@ namespace TinyRPC
 
         virtual ~TinyCommAsio()
         {
-            wake_threads_for_exit();
+            KillWorkerThreads();
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
@@ -110,7 +117,7 @@ namespace TinyRPC
                 //}
             }
             io_service_.stop();
-            acceptor_->close();
+            if (acceptor_) acceptor_->close();
             accepting_thread_.join();
             LOG("asio accepting thread exit");
             for (int i = 0; i < NUM_WORKERS; i++)
@@ -120,20 +127,20 @@ namespace TinyRPC
             }
         };
 
-        virtual void wake_threads_for_exit()
+        virtual void KillWorkerThreads()
         {
             receive_queue_.signalForKill();
         }
 
         // start polling for messages
-        virtual void start() override 
+        virtual void Start() override 
         {
             if (started_)
             {
                 return;
             }
             started_ = true;
-            accepting_thread_ = std::thread([this](){accepting_thread_func(); });
+            accepting_thread_ = std::thread([this](){AcceptingThreadFunc(); });
             workers_.resize(NUM_WORKERS);
             for (int i = 0; i < NUM_WORKERS; i++)
             {
@@ -155,7 +162,7 @@ namespace TinyRPC
         };
 
         // send/receive
-        virtual CommErrors send(const MessagePtr & msg) override
+        virtual CommErrors Send(const MessagePtr & msg) override
         {
             // pad a uint64_t size at the head of the buffer
             uint64_t size = msg->get_stream_buffer().get_size() + sizeof(uint64_t);
@@ -163,7 +170,7 @@ namespace TinyRPC
             SocketBuffersPtr socket;
             try
             {
-                socket = get_socket(msg->get_remote_addr());
+                socket = GetSocket(msg->get_remote_addr());
                 if (socket == nullptr)
                 {
                     ASSERT(exit_now_, "socket is null, but exit_now_ is not");
@@ -179,14 +186,14 @@ namespace TinyRPC
                 asio::error_code err;
                 if (socket)
                 {
-                    handle_failure(socket, err);
+                    HandleFailure(socket, err);
                 }                
                 return CommErrors::SEND_ERROR;
             }            
             return CommErrors::SUCCESS;
         };
 
-        virtual MessagePtr recv() override
+        virtual MessagePtr Recv() override
         {
             MessagePtr msg = nullptr;
             receive_queue_.pop(msg);
@@ -194,9 +201,11 @@ namespace TinyRPC
         };
 
     private:
-        void accepting_thread_func()
+        void AcceptingThreadFunc()
         {
-            SetThreadName("asio accept thread");  
+            SetThreadName("asio accept thread");
+            // if port==0 is specified, acceptor_ will be null
+            if (!acceptor_) return;
             try
             {
                 acceptor_->listen();
@@ -205,13 +214,13 @@ namespace TinyRPC
                 {
                     try
                     {
-                        asioSocket* sock = new asioSocket(io_service_);
+                        AsioSocket* sock = new AsioSocket(io_service_);
                         acceptor_->accept(*sock);
                         if (exit_now_)
                         {
                             return;
                         }
-                        const asioEP & remote = sock->remote_endpoint();
+                        const AsioEP & remote = sock->remote_endpoint();
                         LOG("new client connected: %s", EPToString(remote).c_str());
                         LockGuard l(sockets_lock_);
                         if (exit_now_)
@@ -234,7 +243,7 @@ namespace TinyRPC
                             delete sock;
                         }
                         socket->target = remote;
-                        post_async_read(socket);
+                        PostAsyncRead(socket);
                     }
                     catch (...)
                     {
@@ -256,7 +265,7 @@ namespace TinyRPC
             }
         }
 
-        inline void post_async_read(const SocketBuffersPtr & socket)
+        inline void PostAsyncRead(const SocketBuffersPtr & socket)
         {
             // ASSUMING socket.lock is held
             try
@@ -267,7 +276,7 @@ namespace TinyRPC
                 socket->sock->async_read_some(asio::buffer(buf, size),
                     [this, socket](const asio::error_code& ec, std::size_t bytes_transferred)
                 {
-                    handle_read(socket, ec, bytes_transferred);
+                    HandleRead(socket, ec, bytes_transferred);
                 });
             }
             catch (std::exception & e)
@@ -280,7 +289,7 @@ namespace TinyRPC
             }
         }
 
-        void handle_read(SocketBuffersPtr socket, const asio::error_code & ec, std::size_t bytes_transferred)
+        void HandleRead(SocketBuffersPtr socket, const asio::error_code & ec, std::size_t bytes_transferred)
         {
             if (exit_now_)
                 return;
@@ -288,12 +297,12 @@ namespace TinyRPC
             {
                 WARN("read error from %s:%d, try to handle failture", 
                     socket->target.address().to_string().c_str(), socket->target.port());
-                handle_failure(socket, ec);
+                HandleFailure(socket, ec);
             }
             else
             {
                 LockGuard sl(socket->lock);
-                const asioEP & remote = socket->sock->remote_endpoint();
+                const AsioEP & remote = socket->sock->remote_endpoint();
                 LOG("received %llu bytes from socket", bytes_transferred);
                 socket->receive_buffer.mark_receive_bytes(bytes_transferred);
                 size_t bytes_received_total = socket->receive_buffer.get_received_bytes();
@@ -361,11 +370,11 @@ namespace TinyRPC
                     }
                 }
                 // no matter what happended, we should post a new read request
-                post_async_read(socket);
+                PostAsyncRead(socket);
             }
         }
 
-        void handle_failure(SocketBuffersPtr socket, const asio::error_code& ec)
+        void HandleFailure(SocketBuffersPtr socket, const asio::error_code& ec)
         {
             WARN("a network failure occurred, ec=%s", ec.message().c_str());
             LockGuard l(sockets_lock_);
@@ -385,9 +394,10 @@ namespace TinyRPC
             {
                 sockets_.erase(it);
             }
+            LOG("now number of sockets becomes %llu", sockets_.size());
         }
 
-        SocketBuffersPtr get_socket(const asioEP & remote)
+        SocketBuffersPtr GetSocket(const AsioEP & remote)
         {
             LockGuard l(sockets_lock_);
             if (exit_now_)
@@ -401,7 +411,7 @@ namespace TinyRPC
             LockGuard sl(socket->lock);
             if (socket->sock == nullptr)
             {
-                asioSocket * sock = new asioSocket(io_service_);
+                AsioSocket * sock = new AsioSocket(io_service_);
                 try
                 {
                     sock->connect(remote);
@@ -422,7 +432,7 @@ namespace TinyRPC
                 // now, post a async read
                 socket->receive_buffer.resize(RECEIVE_BUFFER_SIZE);
                 socket->sock = sock;
-                post_async_read(socket);
+                PostAsyncRead(socket);
             }
             return socket;
         }
@@ -430,8 +440,8 @@ namespace TinyRPC
         bool started_;
         ConcurrentQueue<MessagePtr> receive_queue_;
 
-        asioService io_service_;
-        std::shared_ptr<asioAcceptor> acceptor_;
+        AsioService io_service_;
+        std::shared_ptr<AsioAcceptor> acceptor_;
         std::mutex sockets_lock_;
         EPSocketMap sockets_;
         uint16_t port_;
