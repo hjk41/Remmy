@@ -29,10 +29,10 @@ namespace TinyRPC
 
         // start polling for messages
         virtual void Start()=0;
+        virtual void Stop() = 0;
         // send/receive
         virtual CommErrors Send(const MessagePtr &) = 0;
         virtual MessagePtr Recv() = 0;
-        virtual void KillWorkerThreads() = 0;
     };
 
     template<class EndPointT>
