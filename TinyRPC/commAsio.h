@@ -108,13 +108,6 @@ namespace TinyRPC
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
-                //acceptor_->close();
-                //for (auto & s : sockets_)
-                //{
-                //    LockGuard ls(s.second->lock);
-                //    s.second->sock->close();
-                //    // sock will be deleted when SocketBuffers get destroyed
-                //}
             }
             io_service_.stop();
             if (acceptor_) acceptor_->close();
@@ -186,7 +179,7 @@ namespace TinyRPC
                 asio::error_code err;
                 if (socket)
                 {
-                    HandleFailure(socket, err);
+                    HandleFailureWithEc(socket, err);
                 }                
                 return CommErrors::SEND_ERROR;
             }            
@@ -243,7 +236,7 @@ namespace TinyRPC
                             delete sock;
                         }
                         socket->target = remote;
-                        PostAsyncRead(socket);
+                        PostAsyncReadNoLock(socket);
                     }
                     catch (...)
                     {
@@ -265,7 +258,7 @@ namespace TinyRPC
             }
         }
 
-        inline void PostAsyncRead(const SocketBuffersPtr & socket)
+        inline void PostAsyncReadNoLock(const SocketBuffersPtr & socket)
         {
             // ASSUMING socket.lock is held
             try
@@ -289,18 +282,59 @@ namespace TinyRPC
             }
         }
 
+        void RecvLongMessage(SocketBuffersPtr socket, size_t package_size) {
+            try {
+                LockGuard sl(socket->lock);
+                while (socket->receive_buffer.get_received_bytes() < package_size) {
+                    void * buf = socket->receive_buffer.get_writable_buf();
+                    size_t writable_size = socket->receive_buffer.get_writable_size();
+                    size_t bytes_to_read = package_size - socket->receive_buffer.get_received_bytes();
+                    ASSERT(buf != nullptr && writable_size >= bytes_to_read,
+                        "no buf space left, buf=%p, size=%llu", buf, writable_size);
+                    size_t bytes = socket->sock->receive(asio::buffer(buf, writable_size));
+                    socket->receive_buffer.mark_receive_bytes(bytes);
+                }
+                SealMessageNoLock(socket, package_size);
+                PostAsyncReadNoLock(socket);
+            }
+            catch (std::exception & e) {
+                if (exit_now_)
+                {
+                    return;
+                }
+                WARN("read error from %s:%d, trying to handle failure...",
+                    socket->target.address().to_string().c_str(), socket->target.port());
+                HandleFailure(socket, e.what());
+            }
+        }
+
+        void SealMessageNoLock(SocketBuffersPtr socket, size_t package_size) {
+            LOG("A complete packet is received, size=%lld", package_size);
+            // have received the whole message, pack it into MessagePtr and start receiving next one
+            MessagePtr message(new MessageType);
+            message->set_remote_addr(socket->target);
+            message->get_stream_buffer().set_buf(
+                (char*)socket->receive_buffer.renew_buf(RECEIVE_BUFFER_SIZE), package_size);
+            uint64_t size;
+            // remove the head uint64_t before passing it to RPC
+            message->get_stream_buffer().read(size);
+            message->set_status(TinyErrorCode::SUCCESS);
+            receive_queue_.push(message);
+        }
+
         void HandleRead(SocketBuffersPtr socket, const asio::error_code & ec, std::size_t bytes_transferred)
         {
             if (exit_now_)
                 return;
             if (ec)
             {
-                WARN("read error from %s:%d, try to handle failture", 
+                WARN("read error from %s:%d, trying to handle failture...", 
                     socket->target.address().to_string().c_str(), socket->target.port());
-                HandleFailure(socket, ec);
+                HandleFailureWithEc(socket, ec);
             }
             else
             {
+                bool need_post_read = true;
                 LockGuard sl(socket->lock);
                 const AsioEP & remote = socket->sock->remote_endpoint();
                 LOG("received %llu bytes from socket", bytes_transferred);
@@ -310,29 +344,30 @@ namespace TinyRPC
                 if (bytes_received_total >= sizeof(size_t))
                 {
                     uint64_t package_size = *(uint64_t*)socket->receive_buffer.get_buf();
-                    ASSERT(package_size < (size_t)16 * 1024 * 1024 * 1024, "alarmingly large package_size: %lld", package_size);
+                    ASSERT(package_size < (size_t)16 * 1024 * 1024 * 1024, 
+                        "alarmingly large package_size: %lld", package_size);
                     if (bytes_received_total < package_size)
                     {
                         if (socket->receive_buffer.size() < package_size)
                         {
                             socket->receive_buffer.resize(package_size);
                         }
+                        if (package_size >= 10 * 1024 * 1024) {
+                            // spawn a new thread to do the long read
+                            std::thread t([this, socket, package_size]() {
+                                RecvLongMessage(socket, package_size);
+                            });
+                            t.detach();
+                            // the receiving thread will post async read, so we
+                            // should not do it in this thread
+                            need_post_read = false;
+                        }
                     }
                     else
                     {
                         if (bytes_received_total == package_size)
                         {
-                            LOG("A complete packet is received, size=%lld", package_size);
-                            // have received the whole message, pack it into MessagePtr and start receiving next one
-                            MessagePtr message(new MessageType);
-                            message->set_remote_addr(socket->target);
-                            message->get_stream_buffer().set_buf(
-                                (char*)socket->receive_buffer.renew_buf(RECEIVE_BUFFER_SIZE), package_size);
-                            uint64_t size;
-                            // remove the head uint64_t before passing it to RPC
-                            message->get_stream_buffer().read(size);
-                            message->set_status(TinyErrorCode::SUCCESS);
-                            receive_queue_.push(message);
+                            SealMessageNoLock(socket, package_size);
                         }
                         else
                         {
@@ -371,14 +406,19 @@ namespace TinyRPC
                         }
                     }
                 }
-                // no matter what happended, we should post a new read request
-                PostAsyncRead(socket);
+                // post a new read request if required
+                if (need_post_read) PostAsyncReadNoLock(socket);
             }
         }
 
-        void HandleFailure(SocketBuffersPtr socket, const asio::error_code& ec)
+        void HandleFailureWithEc(SocketBuffersPtr socket, const asio::error_code& ec)
         {
-            WARN("a network failure occurred, ec=%s", ec.message().c_str());
+            HandleFailure(socket, ec.message());
+        }
+
+        void HandleFailure(SocketBuffersPtr socket, const std::string& msg)
+        {
+            WARN("a network failure occurred, error=%s", msg.c_str());
             LockGuard l(sockets_lock_);
             LockGuard sl(socket->lock);
             if (exit_now_)
@@ -396,7 +436,7 @@ namespace TinyRPC
             {
                 sockets_.erase(it);
             }
-            LOG("now number of sockets becomes %llu", sockets_.size());
+            LOG("socket closed, now number of sockets becomes %llu", sockets_.size());
         }
 
         SocketBuffersPtr GetSocket(const AsioEP & remote)
@@ -434,7 +474,7 @@ namespace TinyRPC
                 // now, post a async read
                 socket->receive_buffer.resize(RECEIVE_BUFFER_SIZE);
                 socket->sock = sock;
-                PostAsyncRead(socket);
+                PostAsyncReadNoLock(socket);
             }
             return socket;
         }
