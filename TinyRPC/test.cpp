@@ -141,49 +141,63 @@ int main(int argc, char ** argv)
 
     if (string(argv[1]) == "m")
     {
-        if (argc < 3) {
-            cout << "usage: ./testRPC m port" << endl;
+        if (argc < 4) {
+            cout << "usage: ./testRPC m port nPorts" << endl;
             return 1;
         }
         int port = atoi(argv[2]);
-        TinyCommAsio test(port);
-        TinyRPCStub<AsioEP> rpc(&test, 2);
+        int n_ports = atoi(argv[3]);
+        std::vector<std::thread> threads;
+        for (int i = 0; i < n_ports; i++) {
+            threads.emplace_back([=]() {
+                TinyCommAsio test(port + i);
+                TinyRPCStub<AsioEP> rpc(&test, 2);
 
-        Master master;
-        rpc.RegisterProtocol<VectorProtocol>(&master);
-        cout << "listening on port " << port << endl;
-        char c;
-        cin >> c;
+                Master master;
+                rpc.RegisterProtocol<VectorProtocol>(&master);
+                cout << "listening on port " << port << endl;
+                char c;
+                cin >> c;
+            });
+        }
+        for (auto& t : threads) t.join();
     }
     else
     {
-        if (argc < 6) {
-            cout << "usage: ./testRPC s ip port vectorSize nIter" << endl;
+        if (argc < 7) {
+            cout << "usage: ./testRPC s ip port vectorSize nIter nClients" << endl;
             return 1;
         }
         asio::ip::address addr;
+        auto host = addr.from_string(argv[2]);
         int port = atoi(argv[3]);
-        AsioEP ep(addr.from_string(argv[2]), port);
         int vectorSize = atoi(argv[4]);
-        int nIter = atoi(argv[5]);
-        cout << "sending " << nIter <<" requests with vector of size=" << vectorSize << " bytes" << endl;
+        int n_iter = atoi(argv[5]);
+        int n_clients = atoi(argv[6]);
+        cout << "sending " << n_iter <<" requests with vector of size=" 
+            << vectorSize << " bytes with " << n_clients << " clients" << endl;
 
-        TinyCommAsio test(0);
-        TinyRPCStub<AsioEP> rpc(&test, 2);
-
-        Master master;
-        rpc.RegisterProtocol<VectorProtocol>(&master);
-
-        VectorProtocol vp;
-        vp.request.resize(vectorSize);
+        std::vector<std::thread> threads;
         double t1 = GetTime();
-        for (int i = 0; i < nIter; i++)
-        {          
-            rpc.rpc_call(ep, vp);
-            cout << vp.response << endl;
-        }
+        for (int i = 0; i < n_clients; i++) {
+            threads.emplace_back([=]() {
+                AsioEP ep(host, port + i);
+                TinyCommAsio test(0);
+                TinyRPCStub<AsioEP> rpc(&test, 2);
+                Master master;
+                rpc.RegisterProtocol<VectorProtocol>(&master);
+                VectorProtocol vp;
+                vp.request.resize(vectorSize);
+                for (int i = 0; i < n_iter; i++)
+                {
+                    rpc.rpc_call(ep, vp);
+                    cout << vp.response << endl;
+                }
+            });
+        }        
+        for (auto& t : threads) t.join();
         double t2 = GetTime();
-        cout << double(vectorSize) * nIter / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;
+        cout << double(vectorSize) * n_iter * n_clients / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;
     }
     
 #endif

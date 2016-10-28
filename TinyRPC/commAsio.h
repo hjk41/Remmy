@@ -55,7 +55,7 @@ namespace TinyRPC
 
     class TinyCommAsio : public TinyCommBase<AsioEP>
     {
-        const static int NUM_WORKERS = 2;
+        const static int NUM_WORKERS = 4;
         const static int RECEIVE_BUFFER_SIZE = 1024;
 
         struct SocketBuffers
@@ -352,7 +352,8 @@ namespace TinyRPC
                         {
                             socket->receive_buffer.resize(package_size);
                         }
-                        if (package_size >= 10 * 1024 * 1024) {
+                        //if (package_size >= 10 * 1024 * 1024) {
+                        if (0) {
                             // spawn a new thread to do the long read
                             std::thread t([this, socket, package_size]() {
                                 RecvLongMessage(socket, package_size);
