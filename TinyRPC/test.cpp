@@ -22,9 +22,9 @@ int main()
 
 #include "streambuffer.h"
 #include "message.h"
-#include "commAsio.h"
+#include "comm_asio.h"
 #include "tinyrpc.h"
-using namespace TinyRPC;
+using namespace tinyrpc;
 
 static inline double GetTime() {
     using namespace std::chrono;

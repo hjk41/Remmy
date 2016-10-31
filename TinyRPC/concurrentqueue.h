@@ -5,7 +5,7 @@
 #include <mutex>
 #include <atomic>
 
-namespace TinyRPC
+namespace tinyrpc
 {
 
     template<class T>

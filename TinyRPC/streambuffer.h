@@ -8,7 +8,7 @@
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "StreamBuffer"
 
-namespace TinyRPC
+namespace tinyrpc
 {
     class StreamBuffer
     {

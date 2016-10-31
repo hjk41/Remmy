@@ -4,7 +4,7 @@
 #include <string>
 #include "message.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
 
     enum class CommErrors

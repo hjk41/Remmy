@@ -1,6 +1,6 @@
 #pragma once
 
-namespace TinyRPC
+namespace tinyrpc
 {
     enum class TinyErrorCode
     {

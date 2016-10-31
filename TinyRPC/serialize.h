@@ -6,7 +6,7 @@
 #include "logging.h"
 #include "streambuffer.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
 
 #ifdef _WIN32

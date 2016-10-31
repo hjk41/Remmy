@@ -9,7 +9,7 @@
 #include "logging.h"
 #include "tinydatatypes.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
     typedef std::lock_guard<std::mutex> LockGuard;
 

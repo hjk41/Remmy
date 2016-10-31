@@ -12,7 +12,7 @@
 #include "tinycomm.h"
 #include "tinydatatypes.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
 
     class RequestFactoryBase
@@ -75,11 +75,13 @@ namespace TinyRPC
 
         ~TinyRPCStub()
         {
-            _comm->KillWorkerThreads();
+            _comm->Stop();
             for (auto & thread : _worker_threads)
             {
                 thread.join();
             }
+            // The _comm does not belong to us. It is the caller's responsibility
+            // to destruct the _comm.
         }
 
         // calls a remote function

@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <mutex>
 
-namespace TinyRPC
+namespace tinyrpc
 {
     void SetThreadName(const char *);
     void SetThreadName(const char *, int);

@@ -13,7 +13,7 @@
 #include "message.h"
 
 #undef LOGGING_COMPONENT
-#define LOGGING_COMPONENT "CommAsio"
+#define LOGGING_COMPONENT "comm_asio"
 
 template<>
 class std::hash<asio::ip::tcp::endpoint> {
@@ -23,7 +23,7 @@ public:
     }
 };
 
-namespace TinyRPC
+namespace tinyrpc
 {
     typedef asio::ip::tcp::endpoint AsioEP;
     typedef asio::ip::tcp::socket AsioSocket;

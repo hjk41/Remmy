@@ -151,7 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="commAsio.h" />
+    <ClInclude Include="comm_asio.h" />
     <ClInclude Include="concurrentqueue.h" />
     <ClInclude Include="message.h" />
     <ClInclude Include="protocol.h" />

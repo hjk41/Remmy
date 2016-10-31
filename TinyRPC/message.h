@@ -4,7 +4,7 @@
 #include "streambuffer.h"
 #include "tinydatatypes.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
 
 template<class EndPointT>

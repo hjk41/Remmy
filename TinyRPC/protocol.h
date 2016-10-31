@@ -5,7 +5,7 @@
 #include "streambuffer.h"
 #include "serialize.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
     class ProtocolBase
     {

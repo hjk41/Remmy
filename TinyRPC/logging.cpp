@@ -1,7 +1,7 @@
 #include <thread>
 #include "logging.h"
 
-namespace TinyRPC
+namespace tinyrpc
 {
     std::mutex * __logLock = new std::mutex;
 
