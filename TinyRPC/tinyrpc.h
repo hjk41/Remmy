@@ -12,34 +12,29 @@
 #include "tinycomm.h"
 #include "tinydatatypes.h"
 
-namespace tinyrpc
-{
+namespace tinyrpc {
 
-    class RequestFactoryBase
-    {
+    class RequestFactoryBase {
     public:
-        virtual ProtocolBase * create_protocol()=0;
+        virtual ProtocolBase * CreateProtocol()=0;
     };
 
     template<class T>
-    class RequestFactory : public RequestFactoryBase
-    {
+    class RequestFactory : public RequestFactoryBase {
     public:
-        virtual T * create_protocol(){return new T;};
+        virtual T * CreateProtocol(){return new T;};
     };
 
     typedef std::map<uint32_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
 
     template<class EndPointT>
-    class TinyRPCStub
-    {
+    class TinyRPCStub {
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
         const static uint32_t RPC_ASYNC = 1;
         const static uint32_t RPC_SYNC = 0;
 
-        struct MessageHeader
-        {
+        struct MessageHeader {
             int64_t seq_num;
             uint32_t protocol_id;
             uint32_t is_async;
@@ -47,37 +42,30 @@ namespace tinyrpc
 
     public:
         TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
-            : _comm(comm),
-            _seq_num(1),
-            _worker_threads(num_workers),
-            _exit_now_(false)
-        {
-            _comm->Start();
+            : comm_(comm),
+            seq_num_(1),
+            worker_threads_(num_workers),
+            exit_now_(false) {
+            comm_->Start();
             // start threads
-            for (int i = 0; i< num_workers; i++)
-            {
-                _worker_threads[i] = std::thread([this, i]()
-                {
+            for (int i = 0; i< num_workers; i++) {
+                worker_threads_[i] = std::thread([this, i]() {
                     SetThreadName("RPC worker ", i);
-                    while (!_exit_now_)
-                    {
-                        MessagePtr msg = _comm->Recv();
-                        if (msg == nullptr)
-                        {
+                    while (!exit_now_) {
+                        MessagePtr msg = comm_->Recv();
+                        if (msg == nullptr) {
                             LOG("RPC worker %d exiting", i);
                             return;
                         }
-                        handle_message(msg);
+                        HandleMessage(msg);
                     }
                 });
             }
         }
 
-        ~TinyRPCStub()
-        {
-            _comm->Stop();
-            for (auto & thread : _worker_threads)
-            {
+        ~TinyRPCStub() {
+            comm_->Stop();
+            for (auto & thread : worker_threads_) {
                 thread.join();
             }
             // The _comm does not belong to us. It is the caller's responsibility
@@ -85,154 +73,139 @@ namespace tinyrpc
         }
 
         // calls a remote function
-        TinyErrorCode rpc_call(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false)
-        {
+        TinyErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
-            header.seq_num = get_new_seq_num();
-            header.protocol_id = protocol.get_id();
+            header.seq_num = GetNewSeqNum();
+            header.protocol_id = protocol.UniqueId();
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
-            Serialize(message->get_stream_buffer(), header);
+            Serialize(message->GetStreamBuffer(), header);
             LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
-            protocol.marshall_request(message->get_stream_buffer());
+            protocol.MarshallRequest(message->GetStreamBuffer());
             // send message
-            message->set_remote_addr(ep);
-            if (!is_async)
-            {
-                _sleeping_list.add_event(header.seq_num, &protocol);
-                LockGuard l(_waiting_event_lock);
-                _ep_waiting_events[ep].insert(header.seq_num);
+            message->SetRemoteAddr(ep);
+            if (!is_async) {
+                sleeping_list_.AddEvent(header.seq_num, &protocol);
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].insert(header.seq_num);
             }
-            CommErrors err = _comm->Send(message);
-            if (err != CommErrors::SUCCESS)
-            {
+            CommErrors err = comm_->Send(message);
+            if (err != CommErrors::SUCCESS) {
                 WARN("error during rpc_call-send: %d", err);
-                _sleeping_list.remove_event(header.seq_num);
+                sleeping_list_.RemoveEvent(header.seq_num);
                 return TinyErrorCode::FAIL_SEND;
             }
             // wait for signal
-            if (is_async)
-            {
+            if (is_async) {
                 return TinyErrorCode::SUCCESS;
             }
             
-            TinyErrorCode c = _sleeping_list.wait_for_response(header.seq_num, timeout);
+            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
             {
-                LockGuard l(_waiting_event_lock);
-                _ep_waiting_events[ep].erase(header.seq_num);
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].erase(header.seq_num);
             }            
             return c;
         }
 
         template<class T>
-        void RegisterProtocol(void * app_server)
-        {
+        void RegisterProtocol(void * app_server) {
             T * t = new T;
-            uint32_t id = t->get_id();
+            uint32_t id = t->UniqueId();
             delete t;
-            if (_protocol_factory.find(id) != _protocol_factory.end())
-            {
+            if (protocol_factory_.find(id) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 ABORT("Duplicate protocol id detected: %d. "
                     "Did you registered the same protocol multiple times?", id);
             }
-            _protocol_factory[id] = std::make_pair(new RequestFactory<T>(), app_server);
+            protocol_factory_[id] = std::make_pair(new RequestFactory<T>(), app_server);
         }
     private:
         // handle messages, called by WorkerFunction
-        void handle_message(MessagePtr & msg)
-        {
-            if (msg->get_status() != TinyErrorCode::SUCCESS)
-            {
+        void HandleMessage(MessagePtr & msg) {
+            if (msg->GetStatus() != TinyErrorCode::SUCCESS) {
                 WARN("RPC get a message of communication failure of machine %s, status=%d",
-                    EPToString(msg->get_remote_addr()).c_str(), msg->get_status());
-                EndPointT & ep = msg->get_remote_addr();
+                    EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
+                const EndPointT & ep = msg->GetRemoteAddr();
                 std::set<int64_t> events;
                 {
-                    LockGuard l(_waiting_event_lock);
-                    auto it = _ep_waiting_events.find(ep);
-                    if (it != _ep_waiting_events.end())
+                    LockGuard l(waiting_event_lock_);
+                    auto it = ep_waiting_events_.find(ep);
+                    if (it != ep_waiting_events_.end())
                     {
                         events = it->second;
-                        _ep_waiting_events.erase(it);
+                        ep_waiting_events_.erase(it);
                     }
                 }
-                for (auto & event : events)
-                {
-                    _sleeping_list.signal_server_fail(event);
+                for (auto & event : events) {
+                    sleeping_list_.SignalServerFail(event);
                 }
                 return;
             }
 
             MessageHeader header;
-            Deserialize(msg->get_stream_buffer(), header);
+            Deserialize(msg->GetStreamBuffer(), header);
             LOG("Handle message, seq=%lld, pid=%d, async=%d", 
                 header.seq_num, header.protocol_id, header.is_async);
 
-            if (header.seq_num < 0)
-            {
+            if (header.seq_num < 0) {
                 // negative seq number indicates a response to a sync rpc call
                 header.seq_num = -header.seq_num;
-                ProtocolBase * protocol = _sleeping_list.get_response_ptr(header.seq_num);
-                if (protocol != nullptr)
-                {
+                ProtocolBase * protocol = sleeping_list_.GetResponsePtr(header.seq_num);
+                if (protocol != nullptr) {
                     // null protocol indicates this request already timedout and removed
                     // so we don't need to get the response or signal the thread
-                    protocol->unmarshall_response(msg->get_stream_buffer());
-                    _sleeping_list.signal_response(header.seq_num);
+                    protocol->UnmarshallResponse(msg->GetStreamBuffer());
+                    sleeping_list_.SignalResponse(header.seq_num);
                 }                
             }
-            else
-            {
+            else {
                 // positive seq number indicates a request
-                if (_protocol_factory.find(header.protocol_id) == _protocol_factory.end())
-                {
+                if (protocol_factory_.find(header.protocol_id) == protocol_factory_.end()) {
                     ABORT("Unsupported protocol from %s, protocol ID=%d", 
-                        EPToString(msg->get_remote_addr()).c_str(), header.protocol_id);
+                        EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
-                ProtocolBase * protocol = _protocol_factory[header.protocol_id].first->create_protocol();
-                protocol->unmarshall_request(msg->get_stream_buffer());
-                protocol->handle_request(_protocol_factory[header.protocol_id].second);
+                ProtocolBase * protocol = protocol_factory_[header.protocol_id].first->CreateProtocol();
+                protocol->UnmarshallRequest(msg->GetStreamBuffer());
+                protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
                 // send response if sync call
-                if (!header.is_async)
-                {
+                if (!header.is_async) {
                     MessagePtr out_message(new MessageType);
                     header.seq_num = -header.seq_num;
-                    Serialize(out_message->get_stream_buffer(), header);
-                    protocol->marshall_response(out_message->get_stream_buffer());
-                    out_message->set_remote_addr(msg->get_remote_addr());
+                    Serialize(out_message->GetStreamBuffer(), header);
+                    protocol->MarshallResponse(out_message->GetStreamBuffer());
+                    out_message->SetRemoteAddr(msg->GetRemoteAddr());
                     LOG("responding to %s with seq=%d, protocol_id=%d\n", 
-                        EPToString(out_message->get_remote_addr()).c_str(), header.seq_num, header.protocol_id);
-                    _comm->Send(out_message);
+                        EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
+                    comm_->Send(out_message);
                 }
                 delete protocol;
             }
         }
 
-        int64_t get_new_seq_num()
-        {
-            LockGuard l(_seq_lock);
-            if (_seq_num >= INT64_MAX - 1)
-                _seq_num = 1;
-            return _seq_num++;
+        int64_t GetNewSeqNum() {
+            LockGuard l(seq_lock_);
+            if (seq_num_ >= INT64_MAX - 1)
+                seq_num_ = 1;
+            return seq_num_++;
         }
     private:
-        TinyCommBase<EndPointT> * _comm;
+        TinyCommBase<EndPointT> * comm_;
         // for request handling
-        RequestFactories _protocol_factory;
+        RequestFactories protocol_factory_;
         // threads
-        std::vector<std::thread> _worker_threads;
+        std::vector<std::thread> worker_threads_;
         // sequence number
-        int64_t _seq_num;
-        std::mutex _seq_lock;
+        int64_t seq_num_;
+        std::mutex seq_lock_;
         // waiting queue
-        SleepingList<ProtocolBase> _sleeping_list;
-        std::mutex _waiting_event_lock;
-        std::unordered_map<EndPointT, std::set<int64_t>> _ep_waiting_events;
+        SleepingList<ProtocolBase> sleeping_list_;
+        std::mutex waiting_event_lock_;
+        std::unordered_map<EndPointT, std::set<int64_t>> ep_waiting_events_;
         // exit flag
-        std::atomic<bool> _exit_now_;
+        std::atomic<bool> exit_now_;
     };    
 };
 

@@ -152,7 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="comm_asio.h" />
-    <ClInclude Include="concurrentqueue.h" />
+    <ClInclude Include="concurrent_queue.h" />
     <ClInclude Include="message.h" />
     <ClInclude Include="protocol.h" />
     <ClInclude Include="serialize.h" />

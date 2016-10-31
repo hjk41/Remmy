@@ -1,12 +1,13 @@
 #pragma once 
 #include <array>
+#include <atomic>
 #include "asio/asio.hpp"
 #include <exception>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <mutex>
-#include "concurrentqueue.h"
+#include "concurrent_queue.h"
 #include "logging.h"
 #include "streambuffer.h"
 #include "tinycomm.h"
@@ -23,8 +24,7 @@ public:
     }
 };
 
-namespace tinyrpc
-{
+namespace tinyrpc {
     typedef asio::ip::tcp::endpoint AsioEP;
     typedef asio::ip::tcp::socket AsioSocket;
     typedef asio::ip::tcp::acceptor AsioAcceptor;
@@ -109,7 +109,7 @@ namespace tinyrpc
         };
 
         virtual void Stop() {
-            receive_queue_.signalForKill();
+            receive_queue_.SignalForKill();
         }
 
         // start polling for messages
@@ -138,18 +138,18 @@ namespace tinyrpc
         // send/receive
         virtual CommErrors Send(const MessagePtr & msg) override {
             // pad a uint64_t size at the head of the buffer
-            uint64_t size = msg->get_stream_buffer().get_size() + sizeof(uint64_t);
-            msg->get_stream_buffer().write_head(size);
+            uint64_t size = msg->GetStreamBuffer().GetSize() + sizeof(uint64_t);
+            msg->GetStreamBuffer().WriteHead(size);
             SocketBuffersPtr socket;
             try {
-                socket = GetSocket(msg->get_remote_addr());
+                socket = GetSocket(msg->GetRemoteAddr());
                 if (socket == nullptr) {
                     ASSERT(exit_now_, "socket is null, but exit_now_ is not");
                     return CommErrors::SEND_ERROR;
                 }
                 LockGuard sl(socket->lock);
                 asio::write(*(socket->sock),
-                    asio::buffer(msg->get_stream_buffer().get_buf(), msg->get_stream_buffer().get_size()));
+                    asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()));
             }
             catch (std::exception & e) {
                 WARN("communication error occurred: %s", e.what());
@@ -164,7 +164,7 @@ namespace tinyrpc
 
         virtual MessagePtr Recv() override {
             MessagePtr msg = nullptr;
-            receive_queue_.pop(msg);
+            receive_queue_.Pop(msg);
             return msg;
         };
 
@@ -223,8 +223,8 @@ namespace tinyrpc
         inline void PostAsyncReadNoLock(const SocketBuffersPtr & socket) {
             // ASSUMING socket.lock is held
             try {
-                void * buf = socket->receive_buffer.get_writable_buf();
-                size_t size = socket->receive_buffer.get_writable_size();
+                void * buf = socket->receive_buffer.GetWritableBuf();
+                size_t size = socket->receive_buffer.GetWritableSize();
                 ASSERT(buf != nullptr && size != 0, "no buf space left, buf=%p, size=%llu", buf, size);
                 socket->sock->async_read_some(asio::buffer(buf, size),
                     [this, socket](const asio::error_code& ec, std::size_t bytes_transferred)
@@ -244,14 +244,14 @@ namespace tinyrpc
         void RecvLongMessage(SocketBuffersPtr socket, size_t package_size) {
             try {
                 LockGuard sl(socket->lock);
-                while (socket->receive_buffer.get_received_bytes() < package_size) {
-                    void * buf = socket->receive_buffer.get_writable_buf();
-                    size_t writable_size = socket->receive_buffer.get_writable_size();
-                    size_t bytes_to_read = package_size - socket->receive_buffer.get_received_bytes();
+                while (socket->receive_buffer.GetReceivedBytes() < package_size) {
+                    void * buf = socket->receive_buffer.GetWritableBuf();
+                    size_t writable_size = socket->receive_buffer.GetWritableSize();
+                    size_t bytes_to_read = package_size - socket->receive_buffer.GetReceivedBytes();
                     ASSERT(buf != nullptr && writable_size >= bytes_to_read,
                         "no buf space left, buf=%p, size=%llu", buf, writable_size);
                     size_t bytes = socket->sock->receive(asio::buffer(buf, writable_size));
-                    socket->receive_buffer.mark_receive_bytes(bytes);
+                    socket->receive_buffer.MarkReceiveBytes(bytes);
                 }
                 SealMessageNoLock(socket, package_size);
                 PostAsyncReadNoLock(socket);
@@ -270,14 +270,14 @@ namespace tinyrpc
             LOG("A complete packet is received, size=%lld", package_size);
             // have received the whole message, pack it into MessagePtr and start receiving next one
             MessagePtr message(new MessageType);
-            message->set_remote_addr(socket->target);
-            message->get_stream_buffer().set_buf(
-                (char*)socket->receive_buffer.renew_buf(RECEIVE_BUFFER_SIZE), package_size);
+            message->SetRemoteAddr(socket->target);
+            message->GetStreamBuffer().SetBuf(
+                (char*)socket->receive_buffer.RenewBuf(RECEIVE_BUFFER_SIZE), package_size);
             uint64_t size;
             // remove the head uint64_t before passing it to RPC
-            message->get_stream_buffer().read(size);
-            message->set_status(TinyErrorCode::SUCCESS);
-            receive_queue_.push(message);
+            message->GetStreamBuffer().Read(size);
+            message->SetStatus(TinyErrorCode::SUCCESS);
+            receive_queue_.Push(message);
         }
 
         void HandleRead(SocketBuffersPtr socket, const asio::error_code & ec, std::size_t bytes_transferred) {
@@ -293,16 +293,16 @@ namespace tinyrpc
                 LockGuard sl(socket->lock);
                 const AsioEP & remote = socket->sock->remote_endpoint();
                 LOG("received %llu bytes from socket", bytes_transferred);
-                socket->receive_buffer.mark_receive_bytes(bytes_transferred);
-                size_t bytes_received_total = socket->receive_buffer.get_received_bytes();
+                socket->receive_buffer.MarkReceiveBytes(bytes_transferred);
+                size_t bytes_received_total = socket->receive_buffer.GetReceivedBytes();
                 // packet will arrive with the uint64_t size at the head
                 if (bytes_received_total >= sizeof(size_t)) {
-                    uint64_t package_size = *(uint64_t*)socket->receive_buffer.get_buf();
+                    uint64_t package_size = *(uint64_t*)socket->receive_buffer.GetBuf();
                     ASSERT(package_size < (size_t)16 * 1024 * 1024 * 1024, 
                         "alarmingly large package_size: %lld", package_size);
                     if (bytes_received_total < package_size) {
-                        if (socket->receive_buffer.size() < package_size) {
-                            socket->receive_buffer.resize(package_size);
+                        if (socket->receive_buffer.Size() < package_size) {
+                            socket->receive_buffer.Resize(package_size);
                         }
                         if (package_size >= 10 * 1024 * 1024) {
                         //if (0) {
@@ -323,7 +323,7 @@ namespace tinyrpc
                         else {
                             // it is possible that we have received multiple packages, 
                             // in which case bytes_received_total > package_size
-                            char * received_buf = (char*)socket->receive_buffer.get_buf();
+                            char * received_buf = (char*)socket->receive_buffer.GetBuf();
                             uint64_t package_start = 0;
                             uint64_t bytes_left = bytes_received_total;
                             while (true) {
@@ -333,13 +333,13 @@ namespace tinyrpc
                                 char * package_buf = new char[package_size];
                                 memcpy(package_buf, received_buf + package_start, package_size);
                                 MessagePtr message(new MessageType);
-                                message->set_remote_addr(socket->target);
-                                message->get_stream_buffer().set_buf(package_buf, package_size);
+                                message->SetRemoteAddr(socket->target);
+                                message->GetStreamBuffer().SetBuf(package_buf, package_size);
                                 uint64_t size;
                                 // remove the head uint64_t before passing it to RPC
-                                message->get_stream_buffer().read(size);
-                                message->set_status(TinyErrorCode::SUCCESS);
-                                receive_queue_.push(message);
+                                message->GetStreamBuffer().Read(size);
+                                message->SetStatus(TinyErrorCode::SUCCESS);
+                                receive_queue_.Push(message);
                                 package_start += package_size;
                                 bytes_left -= package_size;
                                 if (bytes_left < sizeof(uint64_t)
@@ -350,7 +350,7 @@ namespace tinyrpc
                             // ok, now we have something left in the buffer, but not a whole package
                             // we should move the content to the front of the buffer and continue
                             // receiving messages
-                            socket->receive_buffer.compact(package_start);
+                            socket->receive_buffer.Compact(package_start);
                         }
                     }
                 }
@@ -372,9 +372,9 @@ namespace tinyrpc
             if (socket->sock != nullptr) {
                 // notify failure by sending a special message
                 MessagePtr message(new MessageType);
-                message->set_status(TinyErrorCode::SERVER_FAIL);
-                message->set_remote_addr(socket->target);
-                receive_queue_.push(message);
+                message->SetStatus(TinyErrorCode::SERVER_FAIL);
+                message->SetRemoteAddr(socket->target);
+                receive_queue_.Push(message);
             }
             auto it = sockets_.find(socket->target);
             if (it != sockets_.end() && it->second == socket) {
@@ -406,10 +406,10 @@ namespace tinyrpc
                 }
                 LOG("connected to server: %s:%d", remote.address().to_string().c_str(), remote.port());
                 // when we have a null socket, the sending buffer and receiving buffer must be empty
-                ASSERT(socket->receive_buffer.get_received_bytes() == 0,
+                ASSERT(socket->receive_buffer.GetReceivedBytes() == 0,
                     "unexpected non-empty receive buffer");
                 // now, post a async read
-                socket->receive_buffer.resize(RECEIVE_BUFFER_SIZE);
+                socket->receive_buffer.Resize(RECEIVE_BUFFER_SIZE);
                 socket->sock = sock;
                 PostAsyncReadNoLock(socket);
             }

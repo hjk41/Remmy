@@ -4,11 +4,8 @@
 #include <string>
 #include "message.h"
 
-namespace tinyrpc
-{
-
-    enum class CommErrors
-    {
+namespace tinyrpc {
+    enum class CommErrors {
         SUCCESS = 0,
         UNKNOWN = 1,
         CONNECTION_REFUSED = 2,
@@ -18,8 +15,7 @@ namespace tinyrpc
     };
 
     template<class EndPointT>
-    class TinyCommBase
-    {
+    class TinyCommBase {
     public:
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
@@ -36,8 +32,7 @@ namespace tinyrpc
     };
 
     template<class EndPointT>
-    const std::string EPToString(const EndPointT & ep)
-    {
+    const std::string EPToString(const EndPointT & ep) {
         return std::to_string(ep);
     }
 };

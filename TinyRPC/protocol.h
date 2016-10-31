@@ -3,50 +3,43 @@
 #include <cstdint>
 #include <iostream>
 #include "streambuffer.h"
-#include "serialize.h"
+#include "Serialize.h"
 
-namespace tinyrpc
-{
-    class ProtocolBase
-    {
+namespace tinyrpc {
+    class ProtocolBase {
     public:
-        virtual uint32_t get_id() = 0;
+        virtual uint32_t UniqueId() = 0;
         
-        virtual void marshall_request(StreamBuffer &) = 0;
+        virtual void MarshallRequest(StreamBuffer &) = 0;
 
-        virtual void marshall_response(StreamBuffer &) = 0;
+        virtual void MarshallResponse(StreamBuffer &) = 0;
 
-        virtual void unmarshall_request(StreamBuffer &) = 0;
+        virtual void UnmarshallRequest(StreamBuffer &) = 0;
 
-        virtual void unmarshall_response(StreamBuffer &) = 0;
+        virtual void UnmarshallResponse(StreamBuffer &) = 0;
 
-        virtual void handle_request(void *server) = 0;
+        virtual void HandleRequest(void *server) = 0;
     };
 
     template<class RequestT, class ResponseT>
-    class ProtocolTemplate : public ProtocolBase
-    {
+    class ProtocolTemplate : public ProtocolBase {
     public:
         RequestT request;
         ResponseT response;
 
-        virtual void marshall_request(StreamBuffer & buf) override
-        {
+        virtual void MarshallRequest(StreamBuffer & buf) override {
             Serialize(buf, request);
         }
 
-        void marshall_response(StreamBuffer & buf) override
-        {
+        void MarshallResponse(StreamBuffer & buf) override {
             Serialize(buf, response);
         }
 
-        virtual void unmarshall_request(StreamBuffer & buf) override
-        {
+        virtual void UnmarshallRequest(StreamBuffer & buf) override {
             Deserialize(buf, request);
         }
 
-        virtual void unmarshall_response(StreamBuffer & buf) override
-        {
+        virtual void UnmarshallResponse(StreamBuffer & buf) override {
             Deserialize(buf, response);
         }
     };

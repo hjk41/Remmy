@@ -34,58 +34,48 @@ static inline double GetTime() {
         / high_resolution_clock::period::den;
 }
 
-class EchoProtocol : public ProtocolTemplate<int, int>
-{
+class EchoProtocol : public ProtocolTemplate<int, int> {
 public:
-	virtual uint32_t get_id() {
+	virtual uint32_t UniqueId() {
 		return 0;
 	}
 
-	virtual void handle_request(void *server) {
+	virtual void HandleRequest(void *server) {
         response = request;
 	}
 };
 
-class Master
-{
+class Master {
 public:
-    size_t handle(const std::vector<char> & v)
-    {
+    size_t handle(const std::vector<char> & v) {
         cout << "handling a vector of size " << v.size() << endl;
         return v.size();
     }
 };
 
-class VectorProtocol : public ProtocolBase
-{
+class VectorProtocol : public ProtocolBase {
 public:
-    virtual uint32_t get_id()
-    {
+    virtual uint32_t UniqueId() override {
         return 1;
     }
 
-    virtual void marshall_request(StreamBuffer & buf)
-    {
+    virtual void MarshallRequest(StreamBuffer & buf) {
         Serialize(buf, request);
     }
 
-    virtual void marshall_response(StreamBuffer & buf)
-    {
+    virtual void MarshallResponse(StreamBuffer & buf) {
         Serialize(buf, response);
     }
 
-    virtual void unmarshall_request(StreamBuffer & buf)
-    {
+    virtual void UnmarshallRequest(StreamBuffer & buf) {
         Deserialize(buf, request);
     }
 
-    virtual void unmarshall_response(StreamBuffer & buf)
-    {
+    virtual void UnmarshallResponse(StreamBuffer & buf) {
         Deserialize(buf, response);
     }
 
-    virtual void handle_request(void *server)
-    {
+    virtual void HandleRequest(void *server) {
         Master * master = (Master*)server;
         response = master->handle(request);
     }
@@ -96,13 +86,11 @@ public:
 
 const int TEST_PORT = 8082;
 
-int testAsio(int argc, char** argv) {
-    
+int testAsio(int argc, char** argv) {    
     return 0;
 }
 
-int main(int argc, char ** argv)
-{
+int main(int argc, char ** argv) {
 #if 0
 	TinyCommBase<asioEP> *test = new TinyCommAsio(TEST_PORT);
 	TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
@@ -133,14 +121,12 @@ int main(int argc, char ** argv)
     rpc->rpc_call(ep, vp);
     cout << "response = " << vp.response << endl;
 #else
-    if (argc < 2)
-    {
+    if (argc < 2) {
         cout << "usage: ./testRPC m/s ip port vectorSize nIter" << endl;
         return 1;
     }
 
-    if (string(argv[1]) == "m")
-    {
+    if (string(argv[1]) == "m") {
         if (argc < 4) {
             cout << "usage: ./testRPC m port nPorts" << endl;
             return 1;
@@ -162,8 +148,7 @@ int main(int argc, char ** argv)
         }
         for (auto& t : threads) t.join();
     }
-    else
-    {
+    else {
         if (argc < 7) {
             cout << "usage: ./testRPC s ip port vectorSize nIter nClients" << endl;
             return 1;
@@ -188,9 +173,8 @@ int main(int argc, char ** argv)
                 rpc.RegisterProtocol<VectorProtocol>(&master);
                 VectorProtocol vp;
                 vp.request.resize(vectorSize);
-                for (int i = 0; i < n_iter; i++)
-                {
-                    rpc.rpc_call(ep, vp);
+                for (int i = 0; i < n_iter; i++) {
+                    rpc.RpcCall(ep, vp);
                     cout << vp.response << endl;
                 }
             });

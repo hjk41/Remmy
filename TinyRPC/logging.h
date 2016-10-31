@@ -7,11 +7,7 @@
 #include <assert.h>
 #include <mutex>
 
-namespace tinyrpc
-{
-    void SetThreadName(const char *);
-    void SetThreadName(const char *, int);
-
+namespace tinyrpc {
 #define LOG_INFO 0
 #define LOG_WARNING 1
 #define LOG_ERROR 2
@@ -19,24 +15,23 @@ namespace tinyrpc
 
 #define LOG_LEVEL 1
 
+    void SetThreadName(const char *);
+    void SetThreadName(const char *, int);
 
-    extern std::mutex * __logLock;
+    extern std::mutex __log_lock__;
     inline void OctopusLog(int level,
         const char * component,
         const char * filename,
         int lineNum,
         int enabled_level,
-        const char * format, ...)
-    {
-        if (level < enabled_level)
-        {
+        const char * format, ...) {
+        if (level < enabled_level) {
             return;
         }
-        std::lock_guard<std::mutex> l(*__logLock);
+        std::lock_guard<std::mutex> l(__log_lock__);
         va_list args;
 #ifdef PRINT_COMPONENT
-        switch (level)
-        {
+        switch (level) {
         case LOG_INFO:
             fprintf(stdout, "OctopusLog[%s][%s:%d]: ", component, filename, lineNum);
             break;
@@ -48,8 +43,7 @@ namespace tinyrpc
             break;
         }
 #else
-        switch (level)
-        {
+        switch (level) {
         case LOG_INFO:
             fprintf(stdout, "Log[%s:%d]: ", filename, lineNum);
             break;
@@ -66,8 +60,7 @@ namespace tinyrpc
         va_end(args);
         fprintf(stdout, "\n");
         fflush(stdout);
-        if (level == LOG_ERROR)
-        {
+        if (level == LOG_ERROR) {
             std::exit(-1);
         }
     }
@@ -105,6 +98,4 @@ namespace tinyrpc
 
 #define SUICIDE(format, ...) \
     do{ OctopusLog(LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
-
-
 };

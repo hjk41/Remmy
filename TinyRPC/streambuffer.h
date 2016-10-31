@@ -8,10 +8,8 @@
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "StreamBuffer"
 
-namespace tinyrpc
-{
-    class StreamBuffer
-    {
+namespace tinyrpc {
+    class StreamBuffer {
         const static bool SHRINK_WITH_GET = false;
         const static size_t GROW_SIZE = 1024;
         const static size_t RESERVED_HEADER_SPACE = 64;
@@ -26,12 +24,9 @@ namespace tinyrpc
             const_buf_(false),
             pend_(0),
             gpos_(0),
-            ppos_(0)
-        {
-        }
+            ppos_(0) {}
 
-        void init_ostream()
-        {
+        void InitOstream() {
             ASSERT(buf_ == nullptr, "trying to init a already-initialized buffer");
             buf_ = (char*)malloc(RESERVED_HEADER_SPACE * 2);
             const_buf_ = false;
@@ -51,29 +46,22 @@ namespace tinyrpc
             const_buf_(true),
             pend_(size),
             gpos_(0),
-            ppos_(size)
-        {
-        }
+            ppos_(size) {}
 
         StreamBuffer(size_t size)
             : buf_((char*)malloc(size)),
             const_buf_(false),
             pend_(size),
             gpos_(0),
-            ppos_(0)
-        {
-        }
+            ppos_(0) {}
 
-        ~StreamBuffer()
-        {
-            if (!const_buf_)
-            {
+        ~StreamBuffer() {
+            if (!const_buf_) {
                 free(buf_);
             }
         }
 
-        void swap(StreamBuffer & rhs)
-        {
+        void Swap(StreamBuffer & rhs) {
             std::swap(const_buf_, rhs.const_buf_);
             std::swap(buf_, rhs.buf_);
             std::swap(pend_, rhs.pend_);
@@ -81,13 +69,11 @@ namespace tinyrpc
             std::swap(ppos_, rhs.ppos_);
         }
 
-        char * get_buf()
-        {
+        char * GetBuf() {
             return buf_ + gpos_;
         }
 
-        void set_buf(const char * buf, size_t size)
-        {
+        void SetBuf(const char * buf, size_t size) {
             const_buf_ = true;
             buf_ = const_cast<char*>(buf);
             ppos_ = size;
@@ -95,8 +81,7 @@ namespace tinyrpc
             pend_ = size;
         }
 
-        void set_buf(char * buf, size_t size)
-        {
+        void SetBuf(char * buf, size_t size) {
             const_buf_ = false;
             buf_ = buf;
             ppos_ = size;
@@ -104,28 +89,23 @@ namespace tinyrpc
             pend_ = size;
         }
 
-        size_t get_size()
-        {
+        size_t GetSize() {
             return ppos_ - gpos_;
         }
 
         template<class T>
-        void write(const T & val)
-        {
+        void Write(const T & val) {
             ASSERT(std::is_pod<T>::value, "StreamBuffer::write(T) not implemented for %s.", typeid(T).name());
-            write((char*)&val, sizeof(val));
+            Write((char*)&val, sizeof(val));
         }
 
-        void write(const void * buf, size_t size)
-        {
+        void Write(const void * buf, size_t size) {
             ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
-            if (buf_ == nullptr)
-            {
-                init_ostream();
+            if (buf_ == nullptr) {
+                InitOstream();
             }
             size_t new_size = size + ppos_;
-            if (new_size > pend_)
-            {
+            if (new_size > pend_) {
                 // reallocate buffer
                 LOG("buffer is full, reallocating. pend_ = %d, new_size = %d", pend_, new_size);
                 new_size = std::max(new_size, ppos_ + GROW_SIZE);
@@ -139,20 +119,17 @@ namespace tinyrpc
         }
 
         template<class T>
-        void read(T & val)
-        {
+        void Read(T & val) {
             ASSERT(std::is_pod<T>::value, "StreamBuffer::read(T&) not implemented for %s.", typeid(T).name());
-            read(&val, sizeof(val));
+            Read(&val, sizeof(val));
         }
 
-        void read(void * buf, size_t size)
-        {
+        void Read(void * buf, size_t size) {
             ASSERT(gpos_ + size <= ppos_,
                 "reading beyond the array: required size = %d, actual size = %d", size, ppos_ - gpos_);
             memcpy(buf, buf_ + gpos_, size);
             gpos_ += size;
-            if (gpos_ > GROW_SIZE && SHRINK_WITH_GET && !const_buf_)
-            {
+            if (gpos_ > GROW_SIZE && SHRINK_WITH_GET && !const_buf_) {
                 memmove(buf_, buf_ + gpos_, ppos_ - gpos_);
                 char * new_buf = (char *)realloc(buf_, pend_ - gpos_);
                 ASSERT(new_buf, "realloc failed");
@@ -164,17 +141,14 @@ namespace tinyrpc
         }
 
         template<class T>
-        void write_head(const T & val)
-        {
+        void WriteHead(const T & val) {
             static_assert(std::is_pod<T>::value, "StreamBuffer::write_head(T) not implemented for this type.");
-            write_head((char*)&val, sizeof(val));
+            WriteHead((char*)&val, sizeof(val));
         }
 
-        void write_head(const char * buf, size_t size)
-        {
+        void WriteHead(const char * buf, size_t size) {
             ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
-            if (gpos_ < size)
-            {
+            if (gpos_ < size) {
                 // this should rarely happen, since we already have 64-byte reserved
                 WARN("reallocating due to write_head, possible performance loss. gpos_ = %d, size = %d", gpos_, size);
                 size_t new_size = std::max(size + ppos_, ppos_ + RESERVED_HEADER_SPACE);
@@ -205,70 +179,58 @@ namespace tinyrpc
         friend class TinyCommAsio;
     };
 
-    class ResizableBuffer
-    {
+    class ResizableBuffer {
     public:
         ResizableBuffer()
             : buf_(nullptr),
             size_(0),
-            received_bytes_(0)
-        {}
+            received_bytes_(0) {}
 
         ResizableBuffer(size_t size)
             : buf_(malloc(size)),
             size_(size),
-            received_bytes_(0)
-        {}
+            received_bytes_(0) {}
 
-        ~ResizableBuffer()
-        {
+        ~ResizableBuffer() {
             free(buf_);
         }
 
-        void resize(size_t size)
-        {
+        void Resize(size_t size) {
             void * newbuf = realloc(buf_, size);
             ASSERT(newbuf != nullptr, "realloc failed, original size=%lld, target size=%lld", size_, size);
             buf_ = newbuf;
             size_ = size;
         }
 
-        size_t size()
-        {
+        size_t Size() {
             return size_;
         }
 
-        void * get_buf()
-        {
+        void * GetBuf() {
             return buf_;
         }
 
-        size_t get_received_bytes()
-        {
+        size_t GetReceivedBytes() {
             return received_bytes_;
         }
 
-        void mark_receive_bytes(size_t size)
-        {
+        void MarkReceiveBytes(size_t size) {
             received_bytes_ += size;
         }
 
         // get buf pointer
-        void * get_writable_buf()
-        {
+        void * GetWritableBuf() {
             return (char*)buf_ + received_bytes_;
         }
 
         // get writable size
-        size_t get_writable_size()
-        {
+        size_t GetWritableSize() {
             return size_ - received_bytes_;
         }
 
         // take out the buf, release the ownership of the pointer
         // and malloc a new buffer
-        void * renew_buf(size_t size)
-        {
+        void * RenewBuf(size_t size) {
             void * b = buf_;
             buf_ = malloc(size);
             size_ = size;
@@ -276,9 +238,8 @@ namespace tinyrpc
             return b;
         }
 
-        // move the 
-        void compact(uint64_t offset)
-        {
+        // move the contents to the beginning of the buf
+        void Compact(uint64_t offset) {
             ASSERT(offset <= received_bytes_, 
                 "compacting beyond received bytes: offset = %lld, received_bytes = %lld",
                 offset, received_bytes_);
