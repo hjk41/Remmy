@@ -31,7 +31,7 @@ namespace tinyrpc {
         void AddEvent(int64_t event, Response * r) {
             LockGuard l(lock_);
             ResponseSignaled *& rs = event_map_[event];
-            ASSERT(rs == nullptr, "event already registered");
+            TINY_ASSERT(rs == nullptr, "event already registered");
             rs = new ResponseSignaled();
             rs->response = r;
         }
@@ -51,7 +51,7 @@ namespace tinyrpc {
             std::unique_lock<std::mutex> l(lock_);
             TinyErrorCode ret = TinyErrorCode::SUCCESS;
             ResponseSignaled * rs = event_map_[event];
-            ASSERT(rs->response != nullptr, "null response pointer");
+            TINY_ASSERT(rs->response != nullptr, "null response pointer");
             if (!rs->received) {
                 bool out_of_time = false;
                 if (timeout == 0) {

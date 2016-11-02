@@ -54,7 +54,7 @@ namespace tinyrpc {
                     while (!exit_now_) {
                         MessagePtr msg = comm_->Recv();
                         if (msg == nullptr) {
-                            LOG("RPC worker %d exiting", i);
+                            TINY_LOG("RPC worker %d exiting", i);
                             return;
                         }
                         HandleMessage(msg);
@@ -81,7 +81,7 @@ namespace tinyrpc {
             header.protocol_id = protocol.UniqueId();
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
             Serialize(message->GetStreamBuffer(), header);
-            LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             protocol.MarshallRequest(message->GetStreamBuffer());
             // send message
             message->SetRemoteAddr(ep);
@@ -92,7 +92,7 @@ namespace tinyrpc {
             }
             CommErrors err = comm_->Send(message);
             if (err != CommErrors::SUCCESS) {
-                WARN("error during rpc_call-send: %d", err);
+                TINY_WARN("error during rpc_call-send: %d", err);
                 sleeping_list_.RemoveEvent(header.seq_num);
                 return TinyErrorCode::FAIL_SEND;
             }
@@ -116,7 +116,7 @@ namespace tinyrpc {
             delete t;
             if (protocol_factory_.find(id) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                ABORT("Duplicate protocol id detected: %d. "
+                TINY_ABORT("Duplicate protocol id detected: %d. "
                     "Did you registered the same protocol multiple times?", id);
             }
             protocol_factory_[id] = std::make_pair(new RequestFactory<T>(), app_server);
@@ -125,7 +125,7 @@ namespace tinyrpc {
         // handle messages, called by WorkerFunction
         void HandleMessage(MessagePtr & msg) {
             if (msg->GetStatus() != TinyErrorCode::SUCCESS) {
-                WARN("RPC get a message of communication failure of machine %s, status=%d",
+                TINY_WARN("RPC get a message of communication failure of machine %s, status=%d",
                     EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
                 const EndPointT & ep = msg->GetRemoteAddr();
                 std::set<int64_t> events;
@@ -146,7 +146,7 @@ namespace tinyrpc {
 
             MessageHeader header;
             Deserialize(msg->GetStreamBuffer(), header);
-            LOG("Handle message, seq=%lld, pid=%d, async=%d", 
+            TINY_LOG("Handle message, seq=%lld, pid=%d, async=%d", 
                 header.seq_num, header.protocol_id, header.is_async);
 
             if (header.seq_num < 0) {
@@ -163,7 +163,7 @@ namespace tinyrpc {
             else {
                 // positive seq number indicates a request
                 if (protocol_factory_.find(header.protocol_id) == protocol_factory_.end()) {
-                    ABORT("Unsupported protocol from %s, protocol ID=%d", 
+                    TINY_ABORT("Unsupported protocol from %s, protocol ID=%d", 
                         EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
@@ -177,7 +177,7 @@ namespace tinyrpc {
                     Serialize(out_message->GetStreamBuffer(), header);
                     protocol->MarshallResponse(out_message->GetStreamBuffer());
                     out_message->SetRemoteAddr(msg->GetRemoteAddr());
-                    LOG("responding to %s with seq=%d, protocol_id=%d\n", 
+                    TINY_LOG("responding to %s with seq=%d, protocol_id=%d\n", 
                         EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
                     comm_->Send(out_message);
                 }

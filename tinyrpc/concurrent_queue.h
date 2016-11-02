@@ -24,7 +24,7 @@ namespace tinyrpc {
                 cv_.wait(lk);
             if (exit_now_)
                 return false;
-            ASSERT(!queue_.empty(), "");
+            TINY_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
             queue_.pop_front();
             return true;

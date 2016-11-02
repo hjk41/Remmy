@@ -8,12 +8,12 @@
 #include <mutex>
 
 namespace tinyrpc {
-#define LOG_INFO 0
-#define LOG_WARNING 1
-#define LOG_ERROR 2
-#define LOG_ASSERT 3
+#define TINY_LOG_INFO 0
+#define TINY_LOG_WARNING 1
+#define TINY_LOG_ERROR 2
+#define TINY_LOG_ASSERT 3
 
-#define LOG_LEVEL 1
+#define TINY_LOG_LEVEL 1
 
     void SetThreadName(const char *);
     void SetThreadName(const char *, int);
@@ -32,7 +32,7 @@ namespace tinyrpc {
         va_list args;
 #ifdef PRINT_COMPONENT
         switch (level) {
-        case LOG_INFO:
+        case TINY_LOG_INFO:
             fprintf(stdout, "OctopusLog[%s][%s:%d]: ", component, filename, lineNum);
             break;
         case LOG_WARNING:
@@ -44,13 +44,13 @@ namespace tinyrpc {
         }
 #else
         switch (level) {
-        case LOG_INFO:
-            fprintf(stdout, "Log[%s:%d]: ", filename, lineNum);
+        case TINY_LOG_INFO:
+            fprintf(stdout, "TINY_LOG[%s:%d]: ", filename, lineNum);
             break;
-        case LOG_WARNING:
-            fprintf(stdout, "Warn[%s:%d]: ", filename, lineNum);
+        case TINY_LOG_WARNING:
+            fprintf(stdout, "TINY_WARN[%s:%d]: ", filename, lineNum);
             break;
-        case LOG_ERROR:
+        case TINY_LOG_ERROR:
             fprintf(stdout, "Err[%s:%d]: ", filename, lineNum);
             break;
         }
@@ -60,7 +60,7 @@ namespace tinyrpc {
         va_end(args);
         fprintf(stdout, "\n");
         fflush(stdout);
-        if (level == LOG_ERROR) {
+        if (level == TINY_LOG_ERROR) {
             std::exit(-1);
         }
     }
@@ -68,34 +68,34 @@ namespace tinyrpc {
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "common"
 
-#if (LOG_INFO >= LOG_LEVEL)
-#define LOG(format, ...) \
-    do{ OctopusLog(LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (TINY_LOG_INFO >= TINY_LOG_LEVEL)
+#define TINY_LOG(format, ...) \
+    do{ OctopusLog(TINY_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define LOG(...) 
+#define TINY_LOG(...) 
 #endif
 
-#if (LOG_WARNING >= LOG_LEVEL)
-#define WARN(format, ...) \
-    do{ OctopusLog(LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (TINY_LOG_WARNING >= TINY_LOG_LEVEL)
+#define TINY_WARN(format, ...) \
+    do{ OctopusLog(TINY_LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define WARN(...)
+#define TINY_WARN(...)
 #endif
 
-#if (LOG_ERROR >= LOG_LEVEL)
-#define ABORT(format, ...) \
-    do{ OctopusLog(LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (TINY_LOG_ERROR >= TINY_LOG_LEVEL)
+#define TINY_ABORT(format, ...) \
+    do{ OctopusLog(TINY_LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define ABORT(...) abort();
+#define TINY_ABORT(...) TINY_ABORT();
 #endif
 
-#if (LOG_ASSERT >= LOG_LEVEL)
-#define ASSERT(pred, format, ...) \
-    do{ if (!(pred)) ABORT((format), ##__VA_ARGS__); } while (0)
+#if (TINY_LOG_ASSERT >= TINY_LOG_LEVEL)
+#define TINY_ASSERT(pred, format, ...) \
+    do{ if (!(pred)) TINY_ABORT((format), ##__VA_ARGS__); } while (0)
 #else
-#define ASSERT(...) 
+#define TINY_ASSERT(...) 
 #endif
 
-#define SUICIDE(format, ...) \
-    do{ OctopusLog(LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
+#define TINY_SUICIDE(format, ...) \
+    do{ OctopusLog(TINY_LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), TINY_LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
 };

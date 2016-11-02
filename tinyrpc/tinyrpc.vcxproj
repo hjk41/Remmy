@@ -22,6 +22,7 @@
     <ProjectGuid>{FCA5E023-5C06-4031-AE09-9B504B335B4A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>TinyRPC</RootNamespace>
+    <ProjectName>tinyrpc</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
