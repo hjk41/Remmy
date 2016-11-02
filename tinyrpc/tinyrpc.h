@@ -7,6 +7,7 @@
 #include <thread>
 #include <vector>
 
+#include "logging.h"
 #include "protocol.h"
 #include "sleeplist.h"
 #include "tinycomm.h"

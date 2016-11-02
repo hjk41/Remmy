@@ -4,6 +4,8 @@
 #include <list>
 #include <mutex>
 
+#include "logging.h"
+
 namespace tinyrpc {
 
     template<class T>
