@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <iostream>
 #include <list>
@@ -40,14 +41,13 @@ namespace tinyrpc {
             uint32_t protocol_id;
             uint32_t is_async;
         };
-
     public:
         TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
             : comm_(comm),
             seq_num_(1),
             worker_threads_(num_workers),
-            exit_now_(false) {
-            comm_->Start();
+            exit_now_(false),
+            serving_(false) {
             // start threads
             for (int i = 0; i< num_workers; i++) {
                 worker_threads_[i] = std::thread([this, i]() {
@@ -73,8 +73,14 @@ namespace tinyrpc {
             // to destruct the _comm.
         }
 
+        void StartServing() {
+            comm_->Start();
+            serving_ = true;
+        }
+
         // calls a remote function
         TinyErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
+            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
@@ -110,6 +116,26 @@ namespace tinyrpc {
             return c;
         }
 
+		template<uint32_t UID, typename RequestT, typename ResponseT>
+		TinyErrorCode RpcCall(const EndPointT& ep,
+			const RequestT& req, ResponseT& resp,
+			uint64_t timeout = 0, bool is_async = false) {
+			FunctorProtocol<UID, RequestT, ResponseT> p;
+			p.request = req;
+			TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+			resp = p.response;
+			return ec;
+		}
+
+		template<uint32_t UID, typename RequestT>
+		TinyErrorCode RpcCall(const EndPointT& ep,
+			const RequestT& req,
+			uint64_t timeout = 0, bool is_async = false) {
+			FunctorProtocol<UID, RequestT, ResponseT> p;
+			p.request = req;
+			return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+		}
+
         template<class T>
         void RegisterProtocol(void * app_server) {
             T * t = new T;
@@ -122,6 +148,13 @@ namespace tinyrpc {
             }
             protocol_factory_[id] = std::make_pair(new RequestFactory<T>(), app_server);
         }
+
+		template<uint32_t UID, typename RequestT, typename ResponseT>
+		void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
+			std::function<ResponseT(const RequestT&)> *fp 
+				= new std::function<ResponseT(const RequestT&)>(func);
+			RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
+		}
     private:
         // handle messages, called by WorkerFunction
         void HandleMessage(MessagePtr & msg) {
@@ -207,6 +240,8 @@ namespace tinyrpc {
         std::unordered_map<EndPointT, std::set<int64_t>> ep_waiting_events_;
         // exit flag
         std::atomic<bool> exit_now_;
+        // have StartServing been called?
+        std::atomic<int> serving_;
     };    
 };
 

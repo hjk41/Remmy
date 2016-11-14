@@ -1,6 +1,11 @@
 #pragma once
 
+#include <list>
+#include <map>
+#include <queue>
+#include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "logging.h"
@@ -20,42 +25,99 @@ namespace tinyrpc {
     };
 #endif
 
-    template<typename T, bool Enable = TriviallyCopyable<T>::value>
-    class Serializer {
-        // If you get "unresolved external symbol" error, it means you 
-        // have tried to Serialize a non-trivially-copyable class, and
-        // you haven't specialize a Serialize function for it.
-        // Please do it like this:
-        //
-        // template<>
-        // void TinyRPC::Serialize<MyType>(TinyRPC::StreamBuffer & buf, const MyType & v)
-        // {
-        //      buf.write(&(v.xxx), sizeof(v.xxx));
-        //      buf.write(&(v.yyy), sizeof(v.yyy));
-        // }
-        //
-        // The same works with Deserialize. Remember to declare this function
-        // as a friend of class MyType, if you want to access private members
-        // of MyType.
-    public:
-        static void Serialize(StreamBuffer &, const T &);
-        static void Deserialize(StreamBuffer &, T &);
-    };
+	#define HAS_MEM_FUNC(func, name)                                        \
+    template<typename T, typename Sign>                                 \
+    struct name {                                                       \
+        typedef char yes[1];                                            \
+        typedef char no [2];                                            \
+        template <typename U, U> struct type_check;                     \
+        template <typename _1> static yes &chk(type_check<Sign, &_1::func > *); \
+        template <typename   > static no  &chk(...);                    \
+        static bool const value = sizeof(chk<T>(0)) == sizeof(yes);     \
+    }
+
+	HAS_MEM_FUNC(Serialize, _has_serialize_);
+	HAS_MEM_FUNC(Deserialize, _has_deserialize_);
+
+	template<typename T, bool isClass = std::is_class<T>::value>
+	struct _has_serialize {
+		const static bool value =
+			_has_serialize_<T, void(T::*)(StreamBuffer&)const>::value &&
+			_has_deserialize_<T, void(T::*)(StreamBuffer&)>::value;
+	};
+
+	template<typename T>
+	struct _has_serialize<T, false> {
+		const static bool value = false;
+	};
+
+	#define ENABLE_IF_HAS_SERIALIZE(T, RT) typename std::enable_if<_has_serialize<T>::value, RT>::type
+
+	template<typename T>
+	struct _should_do_memcpy {
+		const static bool value = TriviallyCopyable<T>::value
+			&& !std::is_pointer<T>::value
+		    && !_has_serialize<T>::value;
+	};
 
     template<typename T>
-    class Serializer <T, true> {
+    class Serializer {
     public:
-        static void Serialize(StreamBuffer & buf, const T & val) {
-            buf.Write(&val, sizeof(T));
-        }
-        static void Deserialize(StreamBuffer & buf, T & val) {
-            buf.Read(&val, sizeof(T));
-        }
+		/*
+		* If T has Serialize and Deserialize, then use them
+		*/
+		template<typename T2 = T>
+        static typename std::enable_if<_has_serialize<T2>::value, void>::type 
+			Serialize(StreamBuffer& buf, const T2& d) {
+			d.Serialize(buf);
+		}
+
+		template<typename T2 = T>
+		static typename std::enable_if<_has_serialize<T2>::value, void>::type
+			Deserialize(StreamBuffer& buf, T2& d) {
+			d.Deserialize(buf);
+		}
+
+		/*
+		* Otherwise, use memcpy if applicable
+		*/
+		template<typename T2 = T>
+		static typename std::enable_if<_should_do_memcpy<T2>::value, void>::type
+			Serialize(StreamBuffer & buf, const T2 & val) {
+			buf.Write(&val, sizeof(T));
+		}
+
+		template<typename T2 = T>
+		static typename std::enable_if<_should_do_memcpy<T2>::value, void>::type
+			Deserialize(StreamBuffer & buf, T2 & val) {
+			buf.Read(&val, sizeof(T));
+		}
+		
+		/*
+		* Else, raise an error
+		*/
+		template<typename T2 = T>
+		static typename std::enable_if<!_has_serialize<T2>::value && !_should_do_memcpy<T2>::value, void>::type
+			Serialize(StreamBuffer & buf, const T2 & val) {
+			static_assert(false, "Serialize not defined for this type. You can define it by:\n"
+				"    1. define void Serialize(Streambuf&, const T&), or\n"
+				"    2. define T::Serialize(Streambuf&), or\n"
+				"    3. define Serializer<T>::Serialize(StreamBuf&, const T&)");
+		}
+
+		template<typename T2 = T>
+		static typename std::enable_if<!_has_serialize<T2>::value && !_should_do_memcpy<T2>::value, void>::type
+			Deserialize(StreamBuffer & buf, T2 & val) {
+			static_assert(false, "Deserialize not defined for this type. You can define it by:\n"
+				"    1. define void Deserialize(Streambuf&, T&), or\n"
+				"    2. define T::Deserialize(Streambuf&), or\n"
+				"    3. define Serializer<T>::Deserialize(StreamBuf&, T&)");
+		}
     };
 
     // partial specialization for pair
     template<typename T1, typename T2>
-    class Serializer <std::pair<T1, T2>, false> {
+    class Serializer <std::pair<T1, T2>> {
     public:
         static void Serialize(StreamBuffer & buf, const std::pair<T1, T2> & val) {
             Serialize(buf, val.first);
@@ -66,56 +128,22 @@ namespace tinyrpc {
             Deserialize(buf, val.second);
         }
     };
-
-    // partial specialization for map
-    template<typename K, typename V>
-    class Serializer <typename std::map<K, V>, false> {
-    public:
-        static void Serialize(StreamBuffer & buf, const std::map<K, V> & m) {
-            buf.Write(m.size());
-            for (auto & kv : m) {
-                Serialize(buf, kv.first);
-                Serialize(buf, kv.second);
-            }
-        }
-
-        static void Deserialize(StreamBuffer & buf, std::map<K, V> & m) {
-            size_t size;
-            buf.Read(size);
-            for (size_t i = 0; i < size; i++) {
-                std::pair<K, V> p;
-                Deserialize(buf, p.first);
-                Deserialize(buf, p.second);
-                m.insert(m.end(), p);
-            }
-        }
-    };
-
-    // Trivially copyable classes can be handled directly
-    template<typename T>
-    void Serialize(StreamBuffer & buf, const T & val) {
-        Serializer<T>::Serialize(buf, val);
-    }
-
-    template<class T>
-    void Deserialize(StreamBuffer & buf, T & val) {
-        Serializer<T>::Deserialize(buf, val);
-    }
-    
+   
     // ------------------------------
     // specially for vector
     // If T is not trivially copyable, we must copy them one-by-one
     // If T is trivially copyable, we copy the whole vector at once
-    template<typename T, bool Enable = TriviallyCopyable<T>::value>
-    class VectorSerializer {
+    template<typename ContainerT, typename T, 
+		bool ONE_BY_ONE = true>
+    class ContainerSerializer {
     public:
-        static void Serialize(StreamBuffer & buf, const std::vector<T> & vec) {
+        static void Serialize(StreamBuffer& buf, const ContainerT& vec) {
             buf.Write(vec.size());
             for (auto & iter : vec) {
                 Serialize<T>(buf, iter);
             }
         }
-        static void Deserialize(StreamBuffer & buf, std::vector<T> & vec) {
+        static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
             size_t size;
             buf.Read(size);
             vec.resize(size);
@@ -125,16 +153,16 @@ namespace tinyrpc {
         }
     };
 
-    template<typename T>
-    class VectorSerializer <T, true> {
+    template<typename ContainerT, typename T>
+    class ContainerSerializer <ContainerT, T, false> {
     public:
-        static void Serialize(StreamBuffer & buf, const std::vector<T> & vec) {
+        static void Serialize(StreamBuffer& buf, const ContainerT& vec) {
             buf.Write(vec.size());
             if (!vec.empty()) {
                 buf.Write(&vec[0], sizeof(T)*vec.size());
             }
         }
-        static void Deserialize(StreamBuffer & buf, std::vector<T> & vec) {
+        static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
             size_t size;
             buf.Read(size);
             vec.resize(size);
@@ -145,46 +173,40 @@ namespace tinyrpc {
     };
 
     template<typename T>
-    void Serialize(StreamBuffer & buf, const std::vector<T> & vec) {
-        VectorSerializer<T>::Serialize(buf, vec);
-    }  
+	class Serializer<std::vector<T>>
+		: public ContainerSerializer<std::vector<T>, T, !_should_do_memcpy<T>::value> {};
 
-    template<typename T>
-    void Deserialize(StreamBuffer & buf, std::vector<T> & vec) {
-        VectorSerializer<T>::Deserialize(buf, vec);
-    }
+	template<>
+	class Serializer<std::string>
+		: public ContainerSerializer<std::string, char, false> {};
 
-    template<typename T>
-    void Serialize(StreamBuffer & buf, const std::unordered_set<T> & set) {
-        buf.Write(set.size());
-        for (auto & iter : set) {
-            Serialize<T>(buf, iter);
-        }
-    }
+	template<typename T>
+	class Serializer<std::deque<T>>
+		: public ContainerSerializer<std::deque<T>, T, true> {};
 
-    template<typename T>
-    void Deserialize(StreamBuffer & buf, std::unordered_set<T> & set) {
-        size_t size;
-        for (buf.Read(size); size; --size) {
-            T value;
-            Deserialize<T>(buf, value);
-            set.insert(value);
-        }
-    }
+	template<typename T>
+	class Serializer<std::list<T>>
+		: public ContainerSerializer<std::list<T>, T, true> {};
 
-    template<>
-    inline void Serialize<std::string>(StreamBuffer & buf, const std::string & str) {
-        buf.Write(str.size());
-        buf.Write(str.c_str(),  str.size());
-    }
+	template<typename T>
+	class Serializer<std::set<T>> : public ContainerSerializer<std::set<T>, T, true> {};
 
-    template<>
-    inline void Deserialize<std::string>(StreamBuffer & buf, std::string & str) {
-        size_t size;
-        buf.Read(size);
-        str.resize(size);
-        if (!str.empty()){
-            buf.Read(&str[0], size);
-        }
-    }
+	template<typename T>
+	class Serializer<std::unordered_set<T>> : public ContainerSerializer<std::unordered_set<T>, T, true> {};
+
+	template<typename K, typename V>
+	class Serializer<std::map<K, V>> : public ContainerSerializer<std::map<K, V>, std::pair<K, V>, true> {};
+
+	template<typename K, typename V>
+	class Serializer<std::unordered_map<K, V>> : public ContainerSerializer<std::unordered_map<K, V>, std::pair<K, V>, true> {};
+
+	template<typename T>
+	void Serialize(StreamBuffer & buf, const T & val) {
+		Serializer<T>::Serialize(buf, val);
+	}
+
+	template<class T>
+	void Deserialize(StreamBuffer & buf, T & val) {
+		Serializer<T>::Deserialize(buf, val);
+	}
 }

@@ -4,7 +4,7 @@
 namespace tinyrpc {
     std::mutex __log_lock__;
 
-#if (defined(WIN32) || defined(WIN64))
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
     const DWORD MS_VC_EXCEPTION = 0x406D1388;
