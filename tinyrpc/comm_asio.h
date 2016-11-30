@@ -41,6 +41,10 @@ namespace tinyrpc {
         return ep.address().to_string() + ":" + std::to_string(ep.port());
     }
 
+    inline const std::string ToString(const AsioEP & ep) {
+        return EPToString(ep);
+    }
+
     class EPHasher {
     public:
         size_t operator()(const AsioEP & ep) {

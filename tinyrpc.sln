@@ -1,7 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TinyRPC", "TinyRPC\TinyRPC.vcxproj", "{FCA5E023-5C06-4031-AE09-9B504B335B4A}"
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyrpc", "tinyrpc\TinyRPC.vcxproj", "{FCA5E023-5C06-4031-AE09-9B504B335B4A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{A4FD8760-9476-408A-A03B-7B138DF60FDB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FCA5E023-5C06-4031-AE09-9B504B335B4A} = {FCA5E023-5C06-4031-AE09-9B504B335B4A}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,6 +26,14 @@ Global
 		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|Win32.Build.0 = Release|Win32
 		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|x64.ActiveCfg = Release|x64
 		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|x64.Build.0 = Release|x64
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|Win32.Build.0 = Debug|Win32
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|x64.ActiveCfg = Debug|x64
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|x64.Build.0 = Debug|x64
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Release|Win32.ActiveCfg = Release|Win32
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Release|Win32.Build.0 = Release|Win32
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Release|x64.ActiveCfg = Release|x64
+		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
