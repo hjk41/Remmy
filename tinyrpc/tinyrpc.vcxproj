@@ -158,14 +158,12 @@
     <ClInclude Include="message.h" />
     <ClInclude Include="protocol.h" />
     <ClInclude Include="serialize.h" />
+    <ClInclude Include="set_thread_name.h" />
     <ClInclude Include="streambuffer.h" />
     <ClInclude Include="tinycomm.h" />
     <ClInclude Include="logging.h" />
     <ClInclude Include="sleeplist.h" />
     <ClInclude Include="tinyrpc.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="logging.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

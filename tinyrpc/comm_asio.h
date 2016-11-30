@@ -9,6 +9,7 @@
 #include <mutex>
 #include "concurrent_queue.h"
 #include "logging.h"
+#include "set_thread_name.h"
 #include "streambuffer.h"
 #include "tinycomm.h"
 #include "message.h"

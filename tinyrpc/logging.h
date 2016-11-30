@@ -15,10 +15,11 @@ namespace tinyrpc {
 
 #define TINY_LOG_LEVEL 1
 
-    void SetThreadName(const char *);
-    void SetThreadName(const char *, int);
+    inline std::mutex& __Log_Lock__() {
+        static std::mutex log_lock;
+        return log_lock;
+    }
 
-    extern std::mutex __log_lock__;
     inline void OctopusLog(int level,
         const char * component,
         const char * filename,
@@ -28,7 +29,7 @@ namespace tinyrpc {
         if (level < enabled_level) {
             return;
         }
-        std::lock_guard<std::mutex> l(__log_lock__);
+        std::lock_guard<std::mutex> l(__Log_Lock__());
         va_list args;
 #ifdef PRINT_COMPONENT
         switch (level) {
