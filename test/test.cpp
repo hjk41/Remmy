@@ -1,213 +1,83 @@
-#include <iostream>
-#include <type_traits>
-#include <functional>
-#include <vector>
-#include <map>
 #include <chrono>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <string>
+#include <type_traits>
+#include <vector>
 using namespace std;
 
-#ifdef COMPILE_ONLY
-
-#include "streambuffer.h"
-#include "protocol.h"
-#include "tinyrpc.h"
-#include "commAsio.h"
-
-int main()
-{
-    return 0;
-}
-
-#else
-
-#include "streambuffer.h"
-#include "message.h"
 #include "comm_asio.h"
+#include "message.h"
+#include "streambuffer.h"
 #include "tinyrpc.h"
+#include "unique_id.h"
 using namespace tinyrpc;
 
-static inline double GetTime() {
-    using namespace std::chrono;
-    high_resolution_clock::duration tp =
-        high_resolution_clock::now().time_since_epoch();
-    return (double)tp.count() * high_resolution_clock::period::num
-        / high_resolution_clock::period::den;
-}
+struct ComplexType {
+    int x;
+    double y;
+    std::string z;
 
-class EchoProtocol : public ProtocolTemplate<int, int> {
-public:
-    virtual uint32_t UniqueId() {
-        return 0;
+    void Serialize(StreamBuffer& buf) const {
+        tinyrpc::Serialize(buf, x);
+        tinyrpc::Serialize(buf, y);
+        tinyrpc::Serialize(buf, z);
     }
 
-    virtual void HandleRequest(void *server) {
-        response = request;
-    }
-};
-
-class Master {
-public:
-    size_t handle(const std::vector<char> & v) {
-        cout << "handling a vector of size " << v.size() << endl;
-        return v.size();
+    void Deserialize(tinyrpc::StreamBuffer& buf) {
+        tinyrpc::Deserialize(buf, x);
+        tinyrpc::Deserialize(buf, y);
+        tinyrpc::Deserialize(buf, z);
     }
 };
-
-class VectorProtocol : public ProtocolBase {
-public:
-    virtual uint32_t UniqueId() override {
-        return 1;
-    }
-
-    virtual void MarshallRequest(StreamBuffer & buf) {
-        Serialize(buf, request);
-    }
-
-    virtual void MarshallResponse(StreamBuffer & buf) {
-        Serialize(buf, response);
-    }
-
-    virtual void UnmarshallRequest(StreamBuffer & buf) {
-        Deserialize(buf, request);
-    }
-
-    virtual void UnmarshallResponse(StreamBuffer & buf) {
-        Deserialize(buf, response);
-    }
-
-    virtual void HandleRequest(void *server) {
-        Master * master = (Master*)server;
-        response = master->handle(request);
-    }
-
-    std::vector<char> request;
-    size_t response;
-};
-
-const int TEST_PORT = 8082;
-
-int testAsio(int argc, char** argv) {    
-    return 0;
-}
 
 int main(int argc, char ** argv) {
-#if 0
-    TinyCommBase<asioEP> *test = new TinyCommAsio(TEST_PORT);
-    TinyRPCStub<asioEP> *rpc = new TinyRPCStub<asioEP>(test, 2);
+    // create a server
+    int port = 4444;
+    tinyrpc::TinyCommAsio comm(port);
+    tinyrpc::TinyRPCStub<AsioEP> rpc(&comm);
+    // Register protocols the server provides
+    // Template parameters: Response type, Request Type1, Request Type2...
+    // The UniqueId() function returns compile-time determined uint64_t given a string.
+    // It is a convinient way of getting unique ids for different rpcs.
+    rpc.RegisterProtocol<int, int, int>(UniqueId("add"), 
+        [](int x, int y) { return x + y; });
+    rpc.RegisterProtocol<int, int, int>(UniqueId("min"), 
+        [](int x, int y) { return x - y; });
+    rpc.RegisterProtocol<int, int, int>(UniqueId("mul"), 
+        [](int x, int y) { return x * y; });
+    rpc.RegisterProtocol<int, int, int>(UniqueId("div"), 
+        [](int x, int y) { return x / y; });
+    rpc.RegisterProtocol<ComplexType, ComplexType>(UniqueId("foo"),
+        [](ComplexType req) {
+        req.x += 10;
+        req.y += 20;
+        req.z += " world";
+        return req;
+    });
+    // now start serving
+    rpc.StartServing();
 
-    rpc->RegisterProtocol<EchoProtocol>(NULL);
-    Master master;
-    rpc->RegisterProtocol<VectorProtocol>(&master);
-
-    cout << "start test" << endl;
-    EchoProtocol p;
-    p.request = 1000;
-    cout << "the request = " << p.request << endl;
-    cout << "rpc call" << endl;
-    asio::ip::address addr;
-    asioEP ep(addr.from_string("127.0.0.1"), TEST_PORT);
-    rpc->rpc_call(ep, p);
-    cout << "the response = " << p.response << endl;
-
-    p.request = 2000;
-    cout << "the request = " << p.request << endl;
-    cout << "rpc call" << endl;
-    rpc->rpc_call(ep, p);
-    cout << "the response = " << p.response << endl;
-
-    VectorProtocol vp;
-    vp.request.resize(12);
-    cout << "vector.size() = " << vp.request.size() << endl;
-    rpc->rpc_call(ep, vp);
-    cout << "response = " << vp.response << endl;
-#else
-    if (argc < 2) {
-        cout << "usage: ./testRPC m/s ip port vectorSize nIter" << endl;
-        return 1;
-    }
-
-    if (string(argv[1]) == "m") {
-        if (argc < 4) {
-            cout << "usage: ./testRPC m port nPorts" << endl;
-            return 1;
-        }
-        int port = atoi(argv[2]);
-        int n_ports = atoi(argv[3]);
-        //std::vector<std::thread> threads;
-        //for (int i = 0; i < n_ports; i++) {
-        //    threads.emplace_back([=]() {
-        //        TinyCommAsio test(port + i);
-        //        TinyRPCStub<AsioEP> rpc(&test, 2);
-
-        //        Master master;
-        //        rpc.RegisterProtocol<VectorProtocol>(&master);
-        //        cout << "listening on port " << port << endl;
-        //        char c;
-        //        cin >> c;
-        //    });
-        //}
-        //for (auto& t : threads) t.join();
-		TinyCommAsio comm(port);
-		TinyRPCStub<AsioEP> rpc(&comm, 2);
-		rpc.RegisterProtocol<0, int, int>([](const int& i) {return i*i; });
-		rpc.StartServing();
-		cout << "listening on port " << port << endl;
-		char c;
-		cin >> c;
-    }
-    else {
-        if (argc < 7) {
-            cout << "usage: ./testRPC s ip port vectorSize nIter nClients" << endl;
-            return 1;
-        }
-        asio::ip::address addr;
-        auto host = addr.from_string(argv[2]);
-        int port = atoi(argv[3]);
-        int vectorSize = atoi(argv[4]);
-        int n_iter = atoi(argv[5]);
-        int n_clients = atoi(argv[6]);
-        cout << "sending " << n_iter <<" requests with vector of size=" 
-            << vectorSize << " bytes with " << n_clients << " clients" << endl;
-
-        /*std::vector<std::thread> threads;
-        double t1 = GetTime();
-        for (int i = 0; i < n_clients; i++) {
-            threads.emplace_back([=]() {
-                AsioEP ep(host, port + i);
-                TinyCommAsio test(0);
-                TinyRPCStub<AsioEP> rpc(&test, 2);
-                Master master;
-                rpc.RegisterProtocol<VectorProtocol>(&master);
-                VectorProtocol vp;
-                vp.request.resize(vectorSize);
-                for (int i = 0; i < n_iter; i++) {
-                    rpc.RpcCall(ep, vp);
-                    cout << vp.response << endl;
-                }
-            });
-        }        
-        for (auto& t : threads) t.join();
-        double t2 = GetTime();
-        cout << double(vectorSize) * n_iter * n_clients / 1024 / 1024 / (t2 - t1) << " MB/s" << endl;*/
-		AsioEP ep(host, port);
-		TinyCommAsio comm(0);
-		TinyRPCStub<AsioEP> rpc(&comm, 2);
-		rpc.RegisterProtocol<0, int, int>([](const int& i) {return i*i; });
-		rpc.StartServing();
-		cout << "input i: ";
-		int i;
-		cin >> i;
-		auto ec = rpc.RpcCall<0, int, int>(ep, i, i);
-		if (ec != TinyErrorCode::SUCCESS) {
-			cout << "error calling rpc, code=" << (int)ec;
-		}
-		else {
-			cout << "i*i=" << i << endl;
-		}
-    }
-    
-#endif
-
+    // now, create a client
+    AsioEP ep(asio::ip::address::from_string("127.0.0.1"), port);
+    int result;
+    rpc.RpcCall(ep, UniqueId("add"), result, 1, 2);
+    std::cout << "1 + 2 = " << result << std::endl;
+    rpc.RpcCall(ep, UniqueId("min"), result, 100, 66);
+    std::cout << "100 - 66 = " << result << std::endl;
+    rpc.RpcCall(ep, UniqueId("mul"), result, 11, 7);
+    std::cout << "11 * 7 = " << result << std::endl;
+    rpc.RpcCall(ep, UniqueId("div"), result, 100, 6);
+    std::cout << "100 / 6 = " << result << std::endl;
+    ComplexType req;
+    req.x = 11;
+    req.y = 22;
+    req.z = "hello";
+    ComplexType resp;
+    rpc.RpcCall(ep, UniqueId("foo"), resp, req);
+    std::cout << "complex response: x=" << resp.x
+        << " y=" << resp.y
+        << " z=\"" << resp.z << "\"" << std::endl;
     return 0;
 }
-#endif

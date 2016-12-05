@@ -5,6 +5,7 @@
 #include <queue>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -42,7 +43,8 @@ namespace tinyrpc {
 	template<typename T, bool isClass = std::is_class<T>::value>
 	struct _has_serialize {
 		const static bool value =
-			_has_serialize_<T, void(T::*)(StreamBuffer&)const>::value &&
+			(_has_serialize_<T, void(T::*)(StreamBuffer&)const>::value ||
+                _has_serialize_<T, void(T::*)(StreamBuffer&)>::value) &&
 			_has_deserialize_<T, void(T::*)(StreamBuffer&)>::value;
 	};
 
@@ -128,7 +130,7 @@ namespace tinyrpc {
             Deserialize(buf, val.second);
         }
     };
-   
+  
     // ------------------------------
     // specially for vector
     // If T is not trivially copyable, we must copy them one-by-one
@@ -209,4 +211,37 @@ namespace tinyrpc {
 	void Deserialize(StreamBuffer & buf, T & val) {
 		Serializer<T>::Deserialize(buf, val);
 	}
+
+    template<typename T>
+    inline void SerializeVariadic(StreamBuffer& buf, const T& d) {
+        Serialize(buf, d);
+    }
+
+    template<typename T, typename... Ts>
+    inline void SerializeVariadic(StreamBuffer& buf, const T& d, const Ts&... dd) {
+        Serialize(buf, d);
+        SerializeVariadic(buf, dd...);
+    }
+
+    namespace _detail {
+        template<typename Tup, size_t N>
+        struct TupleDeserializer {            
+            static inline void Apply(StreamBuffer& buf, Tup& tup) {
+                auto& e = std::get<std::tuple_size<Tup>::value - N>(tup);
+                Deserialize(buf, e);
+                TupleDeserializer<Tup, N - 1>::Apply(buf, tup);
+            }
+        };
+
+        template<typename Tup>
+        struct TupleDeserializer<Tup, 0> {
+            static inline void Apply(StreamBuffer&, Tup&) {}
+        };
+    }
+
+    template<typename... Ts>
+    inline void DeserializeVariadic(StreamBuffer& buf, std::tuple<Ts...>& tup) {
+        using Tup = std::tuple<Ts...>;
+        _detail::TupleDeserializer<Tup, std::tuple_size<Tup>::value>::Apply(buf, tup);
+    }
 }

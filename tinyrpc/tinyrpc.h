@@ -27,7 +27,7 @@ namespace tinyrpc {
         virtual T * CreateProtocol(){return new T;};
     };
 
-    typedef std::map<uint32_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
+    typedef std::map<uint64_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
 
     template<class EndPointT>
     class TinyRPCStub {
@@ -38,7 +38,7 @@ namespace tinyrpc {
 
         struct MessageHeader {
             int64_t seq_num;
-            uint32_t protocol_id;
+            uint64_t protocol_id;
             uint32_t is_async;
         };
     public:
@@ -116,45 +116,101 @@ namespace tinyrpc {
             return c;
         }
 
-		template<uint32_t UID, typename RequestT, typename ResponseT>
-		TinyErrorCode RpcCall(const EndPointT& ep,
-			const RequestT& req, ResponseT& resp,
-			uint64_t timeout = 0, bool is_async = false) {
-			FunctorProtocol<UID, RequestT, ResponseT> p;
-			p.request = req;
-			TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-			resp = p.response;
-			return ec;
-		}
+        template<typename ResponseT, typename... RequestTs>
+        TinyErrorCode RpcCall(const EndPointT & ep, 
+            uint64_t uid,
+            ResponseT& resp,
+            const RequestTs&... reqs) {
+            bool is_async = false;
+            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
+            MessagePtr message(new MessageType);
+            // write header
+            MessageHeader header;
+            header.seq_num = GetNewSeqNum();
+            header.protocol_id = uid;
+            header.is_async = false;
+            Serialize(message->GetStreamBuffer(), header);
+            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            SerializeVariadic(message->GetStreamBuffer(), reqs...);
+            // send message
+            ResponseOnlyProtocol<ResponseT> protocol;
+            message->SetRemoteAddr(ep);
+            if (!is_async) {
+                sleeping_list_.AddEvent(header.seq_num, &protocol);
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].insert(header.seq_num);
+            }
+            CommErrors err = comm_->Send(message);
+            if (err != CommErrors::SUCCESS) {
+                TINY_WARN("error during rpc_call-send: %d", err);
+                sleeping_list_.RemoveEvent(header.seq_num);
+                return TinyErrorCode::FAIL_SEND;
+            }
+            // wait for signal
+            if (is_async) {
+                return TinyErrorCode::SUCCESS;
+            }
+            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num);
+            {
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].erase(header.seq_num);
+            }
+            resp = std::move(protocol.response);
+            return c;
+        }
 
-		template<uint32_t UID, typename RequestT>
-		TinyErrorCode RpcCall(const EndPointT& ep,
-			const RequestT& req,
-			uint64_t timeout = 0, bool is_async = false) {
-			FunctorProtocol<UID, RequestT, ResponseT> p;
-			p.request = req;
-			return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-		}
+		//template<uint64_t UID, typename RequestT, typename ResponseT>
+		//TinyErrorCode RpcCall(const EndPointT& ep,
+		//	const RequestT& req, ResponseT& resp,
+		//	uint64_t timeout = 0, bool is_async = false) {
+		//	FunctorProtocol<UID, RequestT, ResponseT> p;
+		//	p.request = req;
+		//	TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+		//	resp = p.response;
+		//	return ec;
+		//}
 
-        template<class T>
+		//template<uint64_t UID, typename RequestT>
+		//TinyErrorCode RpcCall(const EndPointT& ep,
+		//	const RequestT& req,
+		//	uint64_t timeout = 0, bool is_async = false) {
+		//	FunctorProtocol<UID, RequestT, ResponseT> p;
+		//	p.request = req;
+		//	return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+		//}
+
+        template<class ProtocolT>
         void RegisterProtocol(void * app_server) {
-            T * t = new T;
-            uint32_t id = t->UniqueId();
+            ProtocolT * t = new ProtocolT;
+            uint64_t id = t->UniqueId();
             delete t;
             if (protocol_factory_.find(id) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 TINY_ABORT("Duplicate protocol id detected: %d. "
                     "Did you registered the same protocol multiple times?", id);
             }
-            protocol_factory_[id] = std::make_pair(new RequestFactory<T>(), app_server);
+            protocol_factory_[id] = std::make_pair(new RequestFactory<ProtocolT>(), app_server);
         }
 
-		template<uint32_t UID, typename RequestT, typename ResponseT>
-		void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
-			std::function<ResponseT(const RequestT&)> *fp 
-				= new std::function<ResponseT(const RequestT&)>(func);
-			RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
-		}
+		//template<uint64_t UID, typename RequestT, typename ResponseT>
+		//void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
+		//	std::function<ResponseT(const RequestT&)> *fp 
+		//		= new std::function<ResponseT(const RequestT&)>(func);
+		//	RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
+		//}
+        template<typename ResponseT, typename... RequestTs>
+        void RegisterProtocol(uint64_t uid, 
+            const std::function<ResponseT(RequestTs...)>& func) {
+            using FuncT = std::function<ResponseT(RequestTs...)>;
+            if (protocol_factory_.find(uid) != protocol_factory_.end()) {
+                // ID() should be unique, and should not be re-registered
+                TINY_ABORT("Duplicate protocol id detected: %d. "
+                    "Did you registered the same protocol multiple times?", uid);
+            }
+            FuncT* fp = new FuncT(func);
+            protocol_factory_[uid] = 
+                std::make_pair(new RequestFactory<ResponseOnlyProtocol<ResponseT, RequestTs...>>(), (void*)fp);
+        }
     private:
         // handle messages, called by WorkerFunction
         void HandleMessage(MessagePtr & msg) {

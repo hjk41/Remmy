@@ -8,7 +8,7 @@
 namespace tinyrpc {
     class ProtocolBase {
     public:
-        virtual uint32_t UniqueId() = 0;
+        virtual uint64_t UniqueId() = 0;
         
         virtual void MarshallRequest(StreamBuffer &) = 0;
 
@@ -64,13 +64,13 @@ namespace tinyrpc {
         }
     };
 
-	template<uint32_t UID, class RequestT, class ResponseT = void>
+	template<uint64_t UID, class RequestT, class ResponseT = void>
 	class FunctorProtocol : public ProtocolBase {
 	public:
 		RequestT request;
 		ResponseT response;
 
-		virtual uint32_t UniqueId() {
+		virtual uint64_t UniqueId() {
 			return UID;
 		}
 
@@ -97,12 +97,12 @@ namespace tinyrpc {
 		}
 	};
 
-	template<uint32_t UID, class RequestT>
+	template<uint64_t UID, class RequestT>
 	class FunctorProtocol<UID, RequestT, void> : public ProtocolBase {
 	public:
 		RequestT request;
 
-		virtual uint32_t UniqueId() {
+		virtual uint64_t UniqueId() {
 			return UID;
 		}
 
@@ -124,4 +124,73 @@ namespace tinyrpc {
 			f(request);
 		}
 	};
+
+    namespace _detail {
+        template<size_t N>
+        struct Apply {
+            template<typename F, typename T, typename... A>
+            static inline auto apply(F && f, T && t, A &&... a)
+                -> decltype(Apply<N - 1>::apply(
+                    ::std::forward<F>(f), ::std::forward<T>(t),
+                    ::std::get<N - 1>(::std::forward<T>(t)), ::std::forward<A>(a)...
+                ))
+            {
+                return Apply<N - 1>::apply(::std::forward<F>(f), ::std::forward<T>(t),
+                    ::std::get<N - 1>(::std::forward<T>(t)), ::std::forward<A>(a)...
+                );
+            }
+        };
+
+        template<>
+        struct Apply<0> {
+            template<typename F, typename T, typename... A>
+            static inline auto apply(F && f, T &&, A &&... a)
+                -> decltype(::std::forward<F>(f)(::std::forward<A>(a)...))
+            {
+                return ::std::forward<F>(f)(::std::forward<A>(a)...);
+            }
+        };
+
+        template<typename F, typename T>
+        inline auto apply(F && f, T && t)
+            -> decltype(Apply< ::std::tuple_size<
+                typename ::std::decay<T>::type
+            >::value>::apply(::std::forward<F>(f), ::std::forward<T>(t)))
+        {
+            return Apply< ::std::tuple_size<
+                typename ::std::decay<T>::type
+            >::value>::apply(::std::forward<F>(f), ::std::forward<T>(t));
+        }
+    }
+
+    template<typename ResponseT, typename... RequestTs>
+    class ResponseOnlyProtocol : public ProtocolBase {
+        using FuncT = std::function<ResponseT(RequestTs...)>;
+    public:
+        ResponseT response;
+        std::tuple<RequestTs...> request;
+
+        virtual uint64_t UniqueId() {
+            return 0;
+        }
+
+        virtual void MarshallRequest(StreamBuffer& buf) {}
+
+        virtual void MarshallResponse(StreamBuffer& buf) {
+            Serialize(buf, response);
+        }
+
+        virtual void UnmarshallRequest(StreamBuffer& buf) {
+            DeserializeVariadic(buf, request);
+        }
+
+        virtual void UnmarshallResponse(StreamBuffer& buf) {
+            Deserialize(buf, response);
+        }
+
+        virtual void HandleRequest(void* functor) {
+            FuncT* f = (FuncT*)(functor);
+            response = _detail::apply(*f, request);
+        }
+    };
 };

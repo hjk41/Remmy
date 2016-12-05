@@ -164,6 +164,7 @@
     <ClInclude Include="logging.h" />
     <ClInclude Include="sleeplist.h" />
     <ClInclude Include="tinyrpc.h" />
+    <ClInclude Include="unique_id.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
