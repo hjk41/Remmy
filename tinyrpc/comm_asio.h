@@ -21,7 +21,9 @@ template<>
 class std::hash<asio::ip::tcp::endpoint> {
 public:
     size_t operator() (const asio::ip::tcp::endpoint & ep) const {
-        return std::hash<std::string>()(ep.address().to_string());
+        uint64_t r = ep.address().to_v4().to_ulong();
+        return ((r << 16) | ep.port());
+        //return std::hash<std::string>()(ep.address().to_string());
     }
 };
 
