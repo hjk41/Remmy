@@ -237,11 +237,37 @@ namespace tinyrpc {
         struct TupleDeserializer<Tup, 0> {
             static inline void Apply(StreamBuffer&, Tup&) {}
         };
+
+        template<typename Tup, size_t N>
+        struct TupleSerializer {
+            static inline void Apply(StreamBuffer& buf, const Tup& tup) {
+                auto& e = std::get<std::tuple_size<Tup>::value - N>(tup);
+                Serialize(buf, e);
+                TupleSerializer<Tup, N - 1>::Apply(buf, tup);
+            }
+        };
+
+        template<typename Tup>
+        struct TupleSerializer<Tup, 0> {
+            static inline void Apply(StreamBuffer& buf, const Tup& tup) {}
+        };
     }
 
     template<typename... Ts>
     inline void DeserializeVariadic(StreamBuffer& buf, std::tuple<Ts...>& tup) {
         using Tup = std::tuple<Ts...>;
         _detail::TupleDeserializer<Tup, std::tuple_size<Tup>::value>::Apply(buf, tup);
+    }
+
+    template<typename... Ts>
+    inline void Serialize(StreamBuffer& buf, const std::tuple<Ts...>& tup) {
+        return _detail::TupleSerializer<std::tuple<Ts...>,
+            std::tuple_size<std::tuple<Ts...>>::value>::Apply(buf, tup);
+    }
+
+    template<typename... Ts>
+    inline void Deserialize(StreamBuffer& buf, std::tuple<Ts...>& tup) {
+        return _detail::TupleDeserializer<std::tuple<Ts...>,
+            std::tuple_size<std::tuple<Ts...>>::value>::Apply(buf, tup);
     }
 }

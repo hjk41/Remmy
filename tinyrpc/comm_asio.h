@@ -9,10 +9,11 @@
 #include <mutex>
 #include "concurrent_queue.h"
 #include "logging.h"
+#include "message.h"
+#include "serialize.h"
 #include "set_thread_name.h"
 #include "streambuffer.h"
 #include "tinycomm.h"
-#include "message.h"
 
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "comm_asio"
@@ -38,6 +39,25 @@ namespace tinyrpc {
     typedef std::lock_guard<std::mutex> LockGuard;
     typedef asio::mutable_buffer AsioMutableBuffer;
     typedef std::shared_ptr<asio::mutable_buffer> AsioBufferPtr;
+
+    AsioEP MakeAsioEP(const std::string& host, uint16_t port) {
+        return AsioEP(asio::ip::address::from_string(host), port);
+    }
+
+    template<>
+    void Serialize<AsioEP>(StreamBuffer& buf, const AsioEP& ep) {
+        Serialize(buf, ep.address().to_string());
+        Serialize(buf, ep.port());
+    }
+
+    template<>
+    void Deserialize<AsioEP>(StreamBuffer& buf, AsioEP& ep) {
+        std::string host;
+        Deserialize(buf, host);
+        uint16_t port;
+        Deserialize(buf, port);
+        ep = MakeAsioEP(host, port);
+    }
 
     template<>
     inline const std::string EPToString<AsioEP>(const AsioEP & ep) {

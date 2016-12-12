@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <iostream>
+#include "serialize.h"
 #include "streambuffer.h"
-#include "Serialize.h"
 
 namespace tinyrpc {
     class ProtocolBase {
@@ -75,19 +75,19 @@ namespace tinyrpc {
 		}
 
 		virtual void MarshallRequest(StreamBuffer& buf) {
-			Serialize<RequestT>(buf, request);
+			Serialize(buf, request);
 		}
 
 		virtual void MarshallResponse(StreamBuffer& buf) {
-			Serialize<ResponseT>(buf, response);
+			Serialize(buf, response);
 		}
 
 		virtual void UnmarshallRequest(StreamBuffer& buf) {
-			Deserialize<RequestT>(buf, request);
+			Deserialize(buf, request);
 		}
 
 		virtual void UnmarshallResponse(StreamBuffer& buf) {
-			Deserialize<ResponseT>(buf, response);
+			Deserialize(buf, response);
 		}
 
 		virtual void HandleRequest(void* functor) {
@@ -107,13 +107,13 @@ namespace tinyrpc {
 		}
 
 		virtual void MarshallRequest(StreamBuffer& buf) {
-			Serialize<RequestT>(buf, request);
+			Serialize(buf, request);
 		}
 
 		virtual void MarshallResponse(StreamBuffer& buf) {}
 
 		virtual void UnmarshallRequest(StreamBuffer& buf) {
-			Deserialize<RequestT>(buf, request);
+			Deserialize(buf, request);
 		}
 
 		virtual void UnmarshallResponse(StreamBuffer &) {}

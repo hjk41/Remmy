@@ -159,25 +159,25 @@ namespace tinyrpc {
             return c;
         }
 
-		//template<uint64_t UID, typename RequestT, typename ResponseT>
-		//TinyErrorCode RpcCall(const EndPointT& ep,
-		//	const RequestT& req, ResponseT& resp,
-		//	uint64_t timeout = 0, bool is_async = false) {
-		//	FunctorProtocol<UID, RequestT, ResponseT> p;
-		//	p.request = req;
-		//	TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-		//	resp = p.response;
-		//	return ec;
-		//}
+		template<uint64_t UID, typename RequestT, typename ResponseT>
+		TinyErrorCode RpcCall(const EndPointT& ep,
+			const RequestT& req, ResponseT& resp,
+			uint64_t timeout = 0, bool is_async = false) {
+			FunctorProtocol<UID, RequestT, ResponseT> p;
+			p.request = req;
+			TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+			resp = p.response;
+			return ec;
+		}
 
-		//template<uint64_t UID, typename RequestT>
-		//TinyErrorCode RpcCall(const EndPointT& ep,
-		//	const RequestT& req,
-		//	uint64_t timeout = 0, bool is_async = false) {
-		//	FunctorProtocol<UID, RequestT, ResponseT> p;
-		//	p.request = req;
-		//	return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-		//}
+		template<uint64_t UID, typename RequestT>
+		TinyErrorCode RpcCall(const EndPointT& ep,
+			const RequestT& req,
+			uint64_t timeout = 0, bool is_async = false) {
+			FunctorProtocol<UID, RequestT, ResponseT> p;
+			p.request = req;
+			return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
+		}
 
         template<class ProtocolT>
         void RegisterProtocol(void * app_server) {
@@ -192,12 +192,13 @@ namespace tinyrpc {
             protocol_factory_[id] = std::make_pair(new RequestFactory<ProtocolT>(), app_server);
         }
 
-		//template<uint64_t UID, typename RequestT, typename ResponseT>
-		//void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
-		//	std::function<ResponseT(const RequestT&)> *fp 
-		//		= new std::function<ResponseT(const RequestT&)>(func);
-		//	RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
-		//}
+		template<uint64_t UID, typename RequestT, typename ResponseT>
+		void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
+			std::function<ResponseT(const RequestT&)> *fp 
+				= new std::function<ResponseT(const RequestT&)>(func);
+			RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
+		}
+
         template<typename ResponseT, typename... RequestTs>
         void RegisterProtocol(uint64_t uid, 
             const std::function<ResponseT(RequestTs...)>& func) {
@@ -247,6 +248,9 @@ namespace tinyrpc {
                     // null protocol indicates this request already timedout and removed
                     // so we don't need to get the response or signal the thread
                     protocol->UnmarshallResponse(msg->GetStreamBuffer());
+                    TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0, 
+                        "Error unmarshalling response of protocol %llu: %llu bytes are left unread",
+                        protocol->UniqueId(), msg->GetStreamBuffer().GetSize());
                     sleeping_list_.SignalResponse(header.seq_num);
                 }                
             }
@@ -259,6 +263,9 @@ namespace tinyrpc {
                 }
                 ProtocolBase * protocol = protocol_factory_[header.protocol_id].first->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
+                TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
+                    "Error unmarshalling request of protocol %llu: %llu bytes are left unread",
+                    protocol->UniqueId(), msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
                 // send response if sync call
                 if (!header.is_async) {
