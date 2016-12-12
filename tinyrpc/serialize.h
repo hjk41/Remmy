@@ -142,7 +142,7 @@ namespace tinyrpc {
         static void Serialize(StreamBuffer& buf, const ContainerT& vec) {
             buf.Write(vec.size());
             for (auto & iter : vec) {
-                Serialize<T>(buf, iter);
+                tinyrpc::Serialize(buf, iter);
             }
         }
         static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
@@ -150,7 +150,7 @@ namespace tinyrpc {
             buf.Read(size);
             vec.resize(size);
             for (auto & iter : vec) {
-                Deserialize<T>(buf, iter);
+                tinyrpc::Deserialize(buf, iter);
             }             
         }
     };
@@ -203,12 +203,12 @@ namespace tinyrpc {
 	class Serializer<std::unordered_map<K, V>> : public ContainerSerializer<std::unordered_map<K, V>, std::pair<K, V>, true> {};
 
 	template<typename T>
-	void Serialize(StreamBuffer & buf, const T & val) {
+	inline void Serialize(StreamBuffer & buf, const T & val) {
 		Serializer<T>::Serialize(buf, val);
 	}
 
 	template<class T>
-	void Deserialize(StreamBuffer & buf, T & val) {
+	inline void Deserialize(StreamBuffer & buf, T & val) {
 		Serializer<T>::Deserialize(buf, val);
 	}
 

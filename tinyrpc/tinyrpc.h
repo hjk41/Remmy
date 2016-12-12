@@ -166,7 +166,7 @@ namespace tinyrpc {
 			FunctorProtocol<UID, RequestT, ResponseT> p;
 			p.request = req;
 			TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-			resp = p.response;
+			resp = std::move(p.response);
 			return ec;
 		}
 
