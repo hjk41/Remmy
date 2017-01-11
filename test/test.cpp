@@ -36,48 +36,20 @@ int main(int argc, char ** argv) {
     // create a server
     int port = 4444;
     tinyrpc::TinyCommAsio comm(port);
-    tinyrpc::TinyRPCStub<AsioEP> rpc(&comm);
+    tinyrpc::TinyRPCStub<AsioEP> rpc(&comm, 1);
     // Register protocols the server provides
     // Template parameters: Response type, Request Type1, Request Type2...
     // The UniqueId() function returns compile-time determined uint64_t given a string.
     // It is a convinient way of getting unique ids for different rpcs.
-    rpc.RegisterProtocol<int, int, int>(UniqueId("add"), 
-        [](int x, int y) { return x + y; });
-    rpc.RegisterProtocol<int, int, int>(UniqueId("min"), 
-        [](int x, int y) { return x - y; });
-    rpc.RegisterProtocol<int, int, int>(UniqueId("mul"), 
-        [](int x, int y) { return x * y; });
-    rpc.RegisterProtocol<int, int, int>(UniqueId("div"), 
-        [](int x, int y) { return x / y; });
-    rpc.RegisterProtocol<ComplexType, ComplexType>(UniqueId("foo"),
-        [](ComplexType req) {
-        req.x += 10;
-        req.y += 20;
-        req.z += " world";
-        return req;
-    });
+    rpc.RegisterAction<UniqueId("add"), int, int>(
+        [](int x, int y) { cout << x << "+" << y << "=" << x + y << endl; });
     // now start serving
     rpc.StartServing();
 
     // now, create a client
     AsioEP ep(asio::ip::address::from_string("127.0.0.1"), port);
-    int result;
-    rpc.RpcCall(ep, UniqueId("add"), result, 1, 2);
-    std::cout << "1 + 2 = " << result << std::endl;
-    rpc.RpcCall(ep, UniqueId("min"), result, 100, 66);
-    std::cout << "100 - 66 = " << result << std::endl;
-    rpc.RpcCall(ep, UniqueId("mul"), result, 11, 7);
-    std::cout << "11 * 7 = " << result << std::endl;
-    rpc.RpcCall(ep, UniqueId("div"), result, 100, 6);
-    std::cout << "100 / 6 = " << result << std::endl;
-    ComplexType req;
-    req.x = 11;
-    req.y = 22;
-    req.z = "hello";
-    ComplexType resp;
-    rpc.RpcCall(ep, UniqueId("foo"), resp, req);
-    std::cout << "complex response: x=" << resp.x
-        << " y=" << resp.y
-        << " z=\"" << resp.z << "\"" << std::endl;
+    rpc.RpcSend(ep, UniqueId("add"), 1, 2);
+    char c;
+    cin >> c;
     return 0;
 }

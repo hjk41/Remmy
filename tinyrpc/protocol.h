@@ -193,4 +193,31 @@ namespace tinyrpc {
             response = _detail::apply(*f, request);
         }
     };
+
+    template<uint64_t UID, typename... RequestTs>
+    class CallbackProtocol : public ProtocolBase {
+        using FuncT = std::function<void(RequestTs...)>;
+    public:
+        std::tuple<RequestTs...> request;
+
+        virtual uint64_t UniqueId() {
+            return UID;
+        }
+
+        // marshall request is done directly in RPCCall
+        virtual void MarshallRequest(StreamBuffer& buf) {}
+
+        virtual void MarshallResponse(StreamBuffer& buf) {}
+
+        virtual void UnmarshallRequest(StreamBuffer& buf) {
+            DeserializeVariadic(buf, request);
+        }
+
+        virtual void UnmarshallResponse(StreamBuffer& buf) {}
+
+        virtual void HandleRequest(void* functor) {
+            FuncT* f = (FuncT*)(functor);
+            _detail::apply(*f, request);
+        }
+    };
 };

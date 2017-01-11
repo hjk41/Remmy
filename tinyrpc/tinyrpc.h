@@ -16,18 +16,18 @@
 
 namespace tinyrpc {
 
-    class RequestFactoryBase {
+    class ProtocolFactoryBase {
     public:
-        virtual ProtocolBase * CreateProtocol()=0;
+        virtual ProtocolBase* CreateProtocol()=0;
     };
 
     template<class T>
-    class RequestFactory : public RequestFactoryBase {
+    class ProtocolFactory : public ProtocolFactoryBase {
     public:
-        virtual T * CreateProtocol(){return new T;};
+        virtual T* CreateProtocol(){return new T;};
     };
 
-    typedef std::map<uint64_t, std::pair<RequestFactoryBase *, void*> > RequestFactories;
+    typedef std::map<uint64_t, std::pair<ProtocolFactoryBase *, void*> > ProtocolFactories;
 
     template<class EndPointT>
     class TinyRPCStub {
@@ -116,105 +116,49 @@ namespace tinyrpc {
             return c;
         }
 
-        template<typename ResponseT, typename... RequestTs>
-        TinyErrorCode RpcCall(const EndPointT & ep, 
+		template<typename... RequestTs>
+        TinyErrorCode RpcSend(const EndPointT& ep,
             uint64_t uid,
-            ResponseT& resp,
-            const RequestTs&... reqs) {
-            bool is_async = false;
+			const RequestTs&... reqs) {
+            bool is_async = true;
             TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
             header.seq_num = GetNewSeqNum();
             header.protocol_id = uid;
-            header.is_async = false;
+            header.is_async = is_async;
             Serialize(message->GetStreamBuffer(), header);
             TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
-            ResponseOnlyProtocol<ResponseT> protocol;
             message->SetRemoteAddr(ep);
-            if (!is_async) {
-                sleeping_list_.AddEvent(header.seq_num, &protocol);
-                LockGuard l(waiting_event_lock_);
-                ep_waiting_events_[ep].insert(header.seq_num);
-            }
             CommErrors err = comm_->Send(message);
             if (err != CommErrors::SUCCESS) {
                 TINY_WARN("error during rpc_call-send: %d", err);
                 sleeping_list_.RemoveEvent(header.seq_num);
                 return TinyErrorCode::FAIL_SEND;
             }
-            // wait for signal
-            if (is_async) {
-                return TinyErrorCode::SUCCESS;
-            }
-            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num);
-            {
-                LockGuard l(waiting_event_lock_);
-                ep_waiting_events_[ep].erase(header.seq_num);
-            }
-            resp = std::move(protocol.response);
-            return c;
-        }
-
-		template<uint64_t UID, typename RequestT, typename ResponseT>
-		TinyErrorCode RpcCall(const EndPointT& ep,
-			const RequestT& req, ResponseT& resp,
-			uint64_t timeout = 0, bool is_async = false) {
-			FunctorProtocol<UID, RequestT, ResponseT> p;
-			p.request = req;
-			TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-			resp = std::move(p.response);
-			return ec;
+            return TinyErrorCode::SUCCESS;
 		}
 
-		template<uint64_t UID, typename RequestT>
-		TinyErrorCode RpcCall(const EndPointT& ep,
-			const RequestT& req,
-			uint64_t timeout = 0, bool is_async = false) {
-			FunctorProtocol<UID, RequestT, ResponseT> p;
-			p.request = req;
-			return TinyErrorCode ec = RpcCall(ep, p, timeout, is_async);
-		}
-
-        template<class ProtocolT>
-        void RegisterProtocol(void * app_server) {
-            ProtocolT * t = new ProtocolT;
-            uint64_t id = t->UniqueId();
-            delete t;
-            if (protocol_factory_.find(id) != protocol_factory_.end()) {
+        template<uint64_t UID, typename... RequestTs>
+        void RegisterAction(const std::function<void(RequestTs...)>& func) {
+            using CallbackT = std::function<void(RequestTs...)>;
+            if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                TINY_ABORT("Duplicate protocol id detected: %d. "
-                    "Did you registered the same protocol multiple times?", id);
+                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
+                    "Did you registered the same protocol multiple times?", 
+                    UID, DecodeUniqueId(UID));
             }
-            protocol_factory_[id] = std::make_pair(new RequestFactory<ProtocolT>(), app_server);
-        }
-
-		template<uint64_t UID, typename RequestT, typename ResponseT>
-		void RegisterProtocol(const std::function<ResponseT(const RequestT&)>& func) {
-			std::function<ResponseT(const RequestT&)> *fp 
-				= new std::function<ResponseT(const RequestT&)>(func);
-			RegisterProtocol<FunctorProtocol<UID, RequestT, ResponseT>>(fp);
-		}
-
-        template<typename ResponseT, typename... RequestTs>
-        void RegisterProtocol(uint64_t uid, 
-            const std::function<ResponseT(RequestTs...)>& func) {
-            using FuncT = std::function<ResponseT(RequestTs...)>;
-            if (protocol_factory_.find(uid) != protocol_factory_.end()) {
-                // ID() should be unique, and should not be re-registered
-                TINY_ABORT("Duplicate protocol id detected: %d. "
-                    "Did you registered the same protocol multiple times?", uid);
-            }
-            FuncT* fp = new FuncT(func);
-            protocol_factory_[uid] = 
-                std::make_pair(new RequestFactory<ResponseOnlyProtocol<ResponseT, RequestTs...>>(), (void*)fp);
+            CallbackT* fp = new CallbackT(func);
+            protocol_factory_[UID] = 
+                std::make_pair(new ProtocolFactory<CallbackProtocol<UID, RequestTs...>>(), 
+                (void*)fp);
         }
     private:
         // handle messages, called by WorkerFunction
-        void HandleMessage(MessagePtr & msg) {
+        void HandleMessage(MessagePtr& msg) {
             if (msg->GetStatus() != TinyErrorCode::SUCCESS) {
                 TINY_WARN("RPC get a message of communication failure of machine %s, status=%d",
                     EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
@@ -249,8 +193,10 @@ namespace tinyrpc {
                     // so we don't need to get the response or signal the thread
                     protocol->UnmarshallResponse(msg->GetStreamBuffer());
                     TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0, 
-                        "Error unmarshalling response of protocol %llu: %llu bytes are left unread",
-                        protocol->UniqueId(), msg->GetStreamBuffer().GetSize());
+                        "Error unmarshalling response of protocol %s: "
+                        "%llu bytes are left unread",
+                        DecodeUniqueId(protocol->UniqueId()).c_str(), 
+                        msg->GetStreamBuffer().GetSize());
                     sleeping_list_.SignalResponse(header.seq_num);
                 }                
             }
@@ -261,11 +207,13 @@ namespace tinyrpc {
                         EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
-                ProtocolBase * protocol = protocol_factory_[header.protocol_id].first->CreateProtocol();
+                ProtocolBase* protocol = 
+                    protocol_factory_[header.protocol_id].first->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
                 TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
-                    "Error unmarshalling request of protocol %llu: %llu bytes are left unread",
-                    protocol->UniqueId(), msg->GetStreamBuffer().GetSize());
+                    "Error unmarshalling request of protocol %s: %llu bytes are left unread",
+                    DecodeUniqueId(protocol->UniqueId()), 
+                    msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
                 // send response if sync call
                 if (!header.is_async) {
@@ -291,7 +239,7 @@ namespace tinyrpc {
     private:
         TinyCommBase<EndPointT> * comm_;
         // for request handling
-        RequestFactories protocol_factory_;
+        ProtocolFactories protocol_factory_;
         // threads
         std::vector<std::thread> worker_threads_;
         // sequence number

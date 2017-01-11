@@ -302,7 +302,7 @@ namespace tinyrpc {
                 (char*)socket->receive_buffer.RenewBuf(RECEIVE_BUFFER_SIZE), package_size);
             uint64_t size;
             // remove the head uint64_t before passing it to RPC
-            message->GetStreamBuffer().Read(size);
+            message->GetStreamBuffer().Read(&size, sizeof(size));
             message->SetStatus(TinyErrorCode::SUCCESS);
             receive_queue_.Push(message);
         }
@@ -364,7 +364,7 @@ namespace tinyrpc {
                                 message->GetStreamBuffer().SetBuf(package_buf, package_size);
                                 uint64_t size;
                                 // remove the head uint64_t before passing it to RPC
-                                message->GetStreamBuffer().Read(size);
+                                message->GetStreamBuffer().Read(&size, sizeof(size));
                                 message->SetStatus(TinyErrorCode::SUCCESS);
                                 receive_queue_.Push(message);
                                 package_start += package_size;

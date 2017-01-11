@@ -140,14 +140,15 @@ namespace tinyrpc {
     class ContainerSerializer {
     public:
         static void Serialize(StreamBuffer& buf, const ContainerT& vec) {
-            buf.Write(vec.size());
+            size_t size = vec.size();
+            buf.Write(&size, sizeof(size));
             for (auto & iter : vec) {
                 tinyrpc::Serialize(buf, iter);
             }
         }
         static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
             size_t size;
-            buf.Read(size);
+            buf.Read(&size, sizeof(size));
             vec.resize(size);
             for (auto & iter : vec) {
                 tinyrpc::Deserialize(buf, iter);
@@ -159,14 +160,15 @@ namespace tinyrpc {
     class ContainerSerializer <ContainerT, T, false> {
     public:
         static void Serialize(StreamBuffer& buf, const ContainerT& vec) {
-            buf.Write(vec.size());
+            size_t size = vec.size();
+            buf.Write(&size, sizeof(size));
             if (!vec.empty()) {
                 buf.Write(&vec[0], sizeof(T)*vec.size());
             }
         }
         static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
             size_t size;
-            buf.Read(size);
+            buf.Read(&size, sizeof(size));
             vec.resize(size);
             if (!vec.empty()) {
                 buf.Read(&vec[0], sizeof(T)*size);

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 
 namespace tinyrpc {
     namespace _detail {
@@ -39,5 +40,21 @@ namespace tinyrpc {
         // last character is the NULL terminator
         static_assert(Size <= 11, "only 10 characters are allowed");
         return static_cast<uint64_t>(_detail::atom_val(str));
+    }
+
+    std::string DecodeUniqueId(const uint64_t x) {
+        std::string result;
+        result.reserve(11);
+        // don't read characters before we found the leading 0xF
+        // first four bits set?
+        bool read_chars = ((x & 0xF000000000000000) >> 60) == 0xF;
+        uint64_t mask = 0x0FC0000000000000;
+        for (int bitshift = 54; bitshift >= 0; bitshift -= 6, mask >>= 6) {
+            if (read_chars)
+                result += _detail::decoding_table[(x & mask) >> bitshift];
+            else if (((x & mask) >> bitshift) == 0xF)
+                read_chars = true;
+        }
+        return result;
     }
 }

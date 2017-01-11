@@ -93,12 +93,6 @@ namespace tinyrpc {
             return ppos_ - gpos_;
         }
 
-        template<class T>
-        void Write(const T & val) {
-            TINY_ASSERT(std::is_pod<T>::value, "StreamBuffer::write(T) not implemented for %s.", typeid(T).name());
-            Write((char*)&val, sizeof(val));
-        }
-
         void Write(const void * buf, size_t size) {
             TINY_ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
             if (buf_ == nullptr) {
@@ -116,12 +110,6 @@ namespace tinyrpc {
             }
             memcpy(buf_ + ppos_, buf, size);
             ppos_ += size;
-        }
-
-        template<class T>
-        void Read(T & val) {
-            TINY_ASSERT(std::is_pod<T>::value, "StreamBuffer::read(T&) not implemented for %s.", typeid(T).name());
-            Read(&val, sizeof(val));
         }
 
         void Read(void * buf, size_t size) {
