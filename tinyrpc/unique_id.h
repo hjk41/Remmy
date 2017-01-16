@@ -42,7 +42,7 @@ namespace tinyrpc {
         return static_cast<uint64_t>(_detail::atom_val(str));
     }
 
-    std::string DecodeUniqueId(const uint64_t x) {
+    inline std::string DecodeUniqueId(const uint64_t x) {
         std::string result;
         result.reserve(11);
         // don't read characters before we found the leading 0xF
