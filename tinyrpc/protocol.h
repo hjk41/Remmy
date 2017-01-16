@@ -163,18 +163,20 @@ namespace tinyrpc {
         }
     }
 
-    template<typename ResponseT, typename... RequestTs>
-    class ResponseOnlyProtocol : public ProtocolBase {
-        using FuncT = std::function<ResponseT(RequestTs...)>;
+    template<uint64_t UID, typename ResponseT, typename... RequestTs>
+    class SyncProtocol : public ProtocolBase {
+        using FuncT = std::function<ResponseT(RequestTs&...)>;
     public:
         ResponseT response;
         std::tuple<RequestTs...> request;
 
         virtual uint64_t UniqueId() {
-            return 0;
+            return UID;
         }
 
-        virtual void MarshallRequest(StreamBuffer& buf) {}
+        virtual void MarshallRequest(StreamBuffer& buf) {
+            SerializeVariadic(buf, request);
+        }
 
         virtual void MarshallResponse(StreamBuffer& buf) {
             Serialize(buf, response);
@@ -195,8 +197,8 @@ namespace tinyrpc {
     };
 
     template<uint64_t UID, typename... RequestTs>
-    class CallbackProtocol : public ProtocolBase {
-        using FuncT = std::function<void(RequestTs...)>;
+    class AsyncProtocol : public ProtocolBase {
+        using FuncT = std::function<void(RequestTs&...)>;
     public:
         std::tuple<RequestTs...> request;
 

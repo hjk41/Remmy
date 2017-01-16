@@ -78,6 +78,7 @@ namespace tinyrpc {
             serving_ = true;
         }
 
+        #if 0
         // calls a remote function
         TinyErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
             TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
@@ -115,10 +116,54 @@ namespace tinyrpc {
             }            
             return c;
         }
+        #endif
 
-		template<typename... RequestTs>
-        TinyErrorCode RpcSend(const EndPointT& ep,
-            uint64_t uid,
+        template<uint64_t uid, typename ResponseT, typename... RequestTs>
+        TinyErrorCode RpcCall(const EndPointT& ep,
+            uint64_t timeout,
+            ResponseT& resp,
+            const RequestTs&... reqs) {
+            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
+            bool is_async = false;
+            MessagePtr message(new MessageType);
+            // write header
+            MessageHeader header;
+            header.seq_num = GetNewSeqNum();
+            header.protocol_id = uid;
+            header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
+            Serialize(message->GetStreamBuffer(), header);
+            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            SerializeVariadic(message->GetStreamBuffer(), reqs...);
+            // send message
+            message->SetRemoteAddr(ep);
+            SyncProtocol<uid, ResponseT, RequestTs...> protocol;
+            if (!is_async) {
+                sleeping_list_.AddEvent(header.seq_num, &protocol);
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].insert(header.seq_num);
+            }
+            CommErrors err = comm_->Send(message);
+            if (err != CommErrors::SUCCESS) {
+                TINY_WARN("error during rpc_call-send: %d", err);
+                sleeping_list_.RemoveEvent(header.seq_num);
+                return TinyErrorCode::FAIL_SEND;
+            }
+            // wait for signal
+            if (is_async) {
+                return TinyErrorCode::SUCCESS;
+            }
+
+            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
+            {
+                LockGuard l(waiting_event_lock_);
+                ep_waiting_events_[ep].erase(header.seq_num);
+            }
+            resp = std::move(protocol.response);
+            return c;
+        }
+
+		template<uint64_t uid, typename... RequestTs>
+        TinyErrorCode RpcCallAsync(const EndPointT& ep,
 			const RequestTs&... reqs) {
             bool is_async = true;
             TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
@@ -142,9 +187,24 @@ namespace tinyrpc {
             return TinyErrorCode::SUCCESS;
 		}
 
+        template<uint64_t UID, typename ResponseT, typename... RequestTs>
+        void RegisterSyncHandler(const std::function<ResponseT(RequestTs&...)>& func) {
+            using CallbackT = std::function<ResponseT(RequestTs&...)>;
+            if (protocol_factory_.find(UID) != protocol_factory_.end()) {
+                // ID() should be unique, and should not be re-registered
+                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
+                    "Did you registered the same protocol multiple times?",
+                    UID, DecodeUniqueId(UID));
+            }
+            CallbackT* fp = new CallbackT(func);
+            protocol_factory_[UID] =
+                std::make_pair(new ProtocolFactory<SyncProtocol<UID, ResponseT, RequestTs...>>(),
+                (void*)fp);
+        }
+
         template<uint64_t UID, typename... RequestTs>
-        void RegisterAction(const std::function<void(RequestTs...)>& func) {
-            using CallbackT = std::function<void(RequestTs...)>;
+        void RegisterAsyncHandler(const std::function<void(RequestTs&...)>& func) {
+            using CallbackT = std::function<void(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 TINY_ABORT("Duplicate protocol id detected: %d for %s. "
@@ -153,7 +213,7 @@ namespace tinyrpc {
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] = 
-                std::make_pair(new ProtocolFactory<CallbackProtocol<UID, RequestTs...>>(), 
+                std::make_pair(new ProtocolFactory<AsyncProtocol<UID, RequestTs...>>(), 
                 (void*)fp);
         }
     private:
