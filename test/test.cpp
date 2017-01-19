@@ -7,6 +7,8 @@
 #include <vector>
 using namespace std;
 
+#if 0
+#ifdef USE_ASIO
 #include "comm_asio.h"
 #include "message.h"
 #include "streambuffer.h"
@@ -64,5 +66,22 @@ int main(int argc, char ** argv) {
     }
     char c;
     cin >> c;
+    return 0;
+}
+#endif
+#endif
+
+#ifdef USE_ZMQ
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "zmq.hpp"
+#include "comm_zmq.h"
+#endif
+
+
+int main(int argc, char** argv) {
+    tinyrpc::ZmqEP ep(0xcccccccc, 0x115c);
+    std::cout << ep.ToString() << std::endl;
     return 0;
 }

@@ -1,4 +1,6 @@
 #pragma once 
+
+#ifdef USE_ASIO
 #include <array>
 #include <atomic>
 #include "asio/asio.hpp"
@@ -456,36 +458,5 @@ namespace tinyrpc {
         std::vector<std::thread> workers_;
         std::atomic<bool> exit_now_;
     };
-
-    //class AsioCommMulti : public TinyCommBase<AsioEP> {
-    //public:
-    //    AsioCommMulti(const std::vector<uint16_t>& ports) {
-    //        TINY_ASSERT(!ports.empty(), "ports cannot be empty");
-    //        comms_.resize(ports.size());
-    //        for (size_t i = 0; i < ports.size(); i++) {
-    //            comms_.push_back(new TinyCommAsio(ports[i]));
-    //        }
-    //    }
-
-    //    ~AsioCommMulti() {
-    //        for (auto p : comms_) delete p;
-    //    }
-
-    //    virtual void Start() override {
-    //        for (auto p : comms_) p->Start();
-    //    }
-
-    //    virtual CommErrors Send(const MessagePtr &) override {
-
-    //    }
-
-    //    virtual MessagePtr Recv() override {
-
-    //    }
-
-    //    virtual void Stop() override {
-    //    }
-    //private:
-    //    std::vector<TinyCommAsio*> comms_;
-    //};
 };
+#endif
