@@ -81,7 +81,7 @@ int main(int argc, char ** argv) {
 
 
 int main(int argc, char** argv) {
-    tinyrpc::ZmqEP ep(0xcccccccc, 0x115c);
+    tinyrpc::ZmqEP ep(0xcccccccc115c);
     std::cout << ep.ToString() << std::endl;
     return 0;
 }

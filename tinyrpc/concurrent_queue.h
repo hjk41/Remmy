@@ -1,6 +1,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <limits>
 #include <list>
 #include <mutex>
 
@@ -11,13 +12,17 @@ namespace tinyrpc {
     template<class T>
     class ConcurrentQueue {
     public:
-        explicit ConcurrentQueue() : exit_now_(false) {
+        explicit ConcurrentQueue(size_t max_elements = std::numeric_limits<size_t>::max()) 
+            : exit_now_(false),
+              max_elements_(max_elements) {
         }
 
-        void Push(const T & e) {
-            std::lock_guard<std::mutex> lk(mutex_);
-            queue_.push_back(e);
-            cv_.notify_one();
+        bool Push(T&& e) {
+            return PushImpl(e);
+        }
+
+        bool Push(const T& e) {
+            return PushImpl(e);
         }
 
         bool Pop(T & rv) {
@@ -50,6 +55,19 @@ namespace tinyrpc {
             cv_.notify_all();
         }
     private:
+        template<typename TT>
+        bool PushImpl(TT&& e) {
+            std::unique_lock<std::mutex> lk(mutex_);
+            while (queue_.size() >= max_elements_ && !exit_now_)
+                cv_.wait(lk);
+            if (exit_now_)
+                return false;
+            queue_.emplace_back(e);
+            cv_.notify_one();
+            return true;
+        }
+
+        size_t max_elements_;
         std::list<T> queue_;
         std::mutex mutex_;
         std::condition_variable cv_;

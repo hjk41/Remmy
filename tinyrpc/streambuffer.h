@@ -73,6 +73,37 @@ namespace tinyrpc {
             return buf_ + gpos_;
         }
 
+        void DetachBuf(void** buf, size_t* size) {
+            *size = GetSize();
+            if (const_buf_) {
+                TINY_WARN("Detaching a constant stream buffer will result in a memory copy");
+                void* new_buf = malloc(GetSize() + sizeof(void*));
+                *buf = new_buf;
+                *(void**)(new_buf) = new_buf;
+                memcpy((char*)new_buf + sizeof(void*), GetBuf(), GetSize());
+            }
+            else {
+                void* orig_buf = buf_;
+                WriteHead((const char*)&orig_buf, sizeof(void*));
+                if (orig_buf != buf_) {
+                    // buffer was reallocated due to too large header
+                    *(void**)GetBuf() = buf_;
+                }
+                *buf = GetBuf() + sizeof(void*);
+            }
+            // now detach the buffer
+            buf_ = nullptr;
+            const_buf_ = false;
+            ppos_ = 0;
+            gpos_ = 0;
+            pend_ = 0;
+        }
+
+        static void FreeDetachedBuf(void* detached_buf, void* hint) {
+            void* buf_head = *((void**)detached_buf - 1);
+            free(buf_head);
+        }
+
         void SetBuf(const char * buf, size_t size) {
             const_buf_ = true;
             buf_ = const_cast<char*>(buf);
@@ -82,6 +113,7 @@ namespace tinyrpc {
         }
 
         void SetBuf(char * buf, size_t size) {
+            if (!const_buf_) free(buf_);
             const_buf_ = false;
             buf_ = buf;
             ppos_ = size;

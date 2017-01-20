@@ -15,6 +15,10 @@ public:
         remote_addr_ = addr;
     }
 
+    void SetRemoteAddr(EndPointT&& addr) {
+        remote_addr_ = addr;
+    }
+
     const EndPointT & GetRemoteAddr() const {
         return remote_addr_;
     }
