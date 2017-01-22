@@ -13,7 +13,7 @@ namespace tinyrpc {
 #define TINY_LOG_ERROR 2
 #define TINY_LOG_ASSERT 3
 
-#define TINY_LOG_LEVEL 1
+#define TINY_LOG_LEVEL 0
 
     inline std::mutex& __Log_Lock__() {
         static std::mutex log_lock;
@@ -71,7 +71,7 @@ namespace tinyrpc {
 
 #if (TINY_LOG_INFO >= TINY_LOG_LEVEL)
 #define TINY_LOG(format, ...) \
-    do{ OctopusLog(TINY_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+    do{ OctopusLog(TINY_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
 #define TINY_LOG(...) 
 #endif

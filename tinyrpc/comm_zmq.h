@@ -28,9 +28,9 @@ namespace tinyrpc {
         uint64_t hash_;
     public:
         ZmqEP() {}
-        ZmqEP(const std::string& ip, uint16_t port) 
+        ZmqEP(const std::string& ip, uint16_t port)
             : ip_string_(ip),
-              port_(port) {
+            port_(port) {
             uint32_t ip_binary = 0;
             size_t p = 0;
             for (int i = 0; i < 4; i++) {
@@ -58,7 +58,7 @@ namespace tinyrpc {
 
         std::string ToString() const {
             if (ip_string_.empty()) {
-                uint32_t binary = (hash_ >> 16);
+                uint32_t binary = (uint32_t)(hash_ >> 16);
                 for (int i = 0; i < 4; i++) {
                     uint8_t d = (binary & 0xff000000) >> 24;
                     ip_string_ += std::to_string(d);
@@ -87,12 +87,20 @@ namespace tinyrpc {
         }
     };
 
-    struct ZmqEPHasher {
-        uint64_t operator()(const ZmqEP& ep) const {
-            return ep.Hash();
-        }
-    };
+    template<>
+    const std::string EPToString<ZmqEP>(const ZmqEP& ep) {
+        return ep.ToString();
+    }
+}
 
+template<>
+struct std::hash<tinyrpc::ZmqEP> {
+    uint64_t operator()(const tinyrpc::ZmqEP& ep) const {
+        return ep.Hash();
+    }
+};
+
+namespace tinyrpc{
     class TinyCommZmq : public TinyCommBase<ZmqEP> {
         /*
         * \brief A pool of sockets, only for single thread usage
@@ -105,7 +113,7 @@ namespace tinyrpc {
              * this amount, we should create a new context.
             */
             const static size_t FD_PER_CONTEXT = 1000;     
-            std::unordered_map<ZmqEP, zmq::socket_t, ZmqEPHasher> sockets_;
+            std::unordered_map<ZmqEP, zmq::socket_t> sockets_;
             std::vector<zmq::context_t> contexts_;
         public:
             zmq::socket_t& GetSocket(const ZmqEP& ep) {
@@ -113,7 +121,7 @@ namespace tinyrpc {
                 if (it == sockets_.end()) {
                     // create a new socket
                     size_t context_id = (sockets_.size() + FD_PER_CONTEXT - 1) / FD_PER_CONTEXT;
-                    if (contexts_.size() < context_id) {
+                    if (contexts_.size() <= context_id) {
                         contexts_.emplace_back();
                     }
                     zmq::socket_t sock(contexts_[context_id], ZMQ_DEALER);
@@ -179,6 +187,7 @@ namespace tinyrpc {
                 buf.DetachBuf(&mem, &size);
                 zmq::socket_t& sock = out_sockets_.GetSocket(msg->GetRemoteAddr());
                 zmq::message_t zmsg(mem, size, StreamBuffer::FreeDetachedBuf);
+                TINY_LOG("sending message of size %llu", zmsg.size());
                 sock.send(zmsg);
             }
         }
@@ -189,7 +198,7 @@ namespace tinyrpc {
             zmq::socket_t in_socket(context, ZMQ_DEALER);
             in_socket.bind(my_ep_.ToString());
             zmq_pollitem_t items[] = {
-                { in_socket, ZMQ_POLLIN, 0 }
+                { in_socket, 0, ZMQ_POLLIN, 0 }
             };
             while (true) {
                 zmq_poll(items, 1, 1000);
@@ -199,6 +208,7 @@ namespace tinyrpc {
                     // TODO: avoid memory copy
                     zmq::message_t zmsg;
                     in_socket.recv(&zmsg);
+                    TINY_LOG("received message of size %llu", zmsg.size());
                     const char* data = (const char*)zmsg.data();
                     uint64_t psize = *(uint64_t*)data;
                     data += sizeof(psize);

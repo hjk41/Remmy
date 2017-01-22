@@ -7,9 +7,10 @@
 #include <vector>
 using namespace std;
 
-#if 0
-#ifdef USE_ASIO
+#define USE_ZMQ_COMM
+
 #include "comm_asio.h"
+#include "comm_zmq.h"
 #include "message.h"
 #include "streambuffer.h"
 #include "tinyrpc.h"
@@ -34,13 +35,25 @@ struct ComplexType {
     }
 };
 
+#ifndef USE_ZMQ_COMM
+typedef tinyrpc::TinyCommAsio CommT;
+typedef tinyrpc::AsioEP EP;
+#else
+typedef tinyrpc::TinyCommZmq CommT;
+typedef tinyrpc::ZmqEP EP;
+#endif
+
 int main(int argc, char ** argv) {
     const uint64_t ADD_OP = UniqueId("add");
     const uint64_t MUL_OP = UniqueId("mul");
     // create a server
     int port = 4444;
-    tinyrpc::TinyCommAsio comm(port);
-    tinyrpc::TinyRPCStub<AsioEP> rpc(&comm, 1);
+    #ifndef USE_ZMQ_COMM
+    CommT comm(port);
+    #else
+    CommT comm("127.0.0.1", port);
+    #endif
+    tinyrpc::TinyRPCStub<EP> rpc(&comm, 1);
     // Register protocols the server provides
     // Template parameters: Response type, Request Type1, Request Type2...
     // The UniqueId() function returns compile-time determined uint64_t given a string.
@@ -53,7 +66,13 @@ int main(int argc, char ** argv) {
     rpc.StartServing();
 
     // now, create a client
+
+    #ifndef USE_ZMQ_COMM
     AsioEP ep(asio::ip::address::from_string("127.0.0.1"), port);
+    #else
+    EP ep("127.0.0.1", port);
+    #endif
+
     rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
     int x = 2, y = 3;
     int r = 0;
@@ -66,22 +85,5 @@ int main(int argc, char ** argv) {
     }
     char c;
     cin >> c;
-    return 0;
-}
-#endif
-#endif
-
-#ifdef USE_ZMQ
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include "zmq.hpp"
-#include "comm_zmq.h"
-#endif
-
-
-int main(int argc, char** argv) {
-    tinyrpc::ZmqEP ep(0xcccccccc115c);
-    std::cout << ep.ToString() << std::endl;
     return 0;
 }
