@@ -32,7 +32,13 @@ namespace tinyrpc {
     };
 
     template<class EndPointT>
-    const std::string EPToString(const EndPointT & ep) {
+    inline const std::string EPToString(const EndPointT & ep) {
         return std::to_string(ep);
     }
+
+	template<class EndPointT>
+	inline EndPointT MakeEP(const std::string& ip, uint16_t port) {
+		TINY_ASSERT("MakeEP not specilized for this type: %s", 
+			typeid(EndPointT).name());
+	}
 };
