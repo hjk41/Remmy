@@ -88,7 +88,7 @@ namespace tinyrpc {
     };
 
     template<>
-    const std::string EPToString<ZmqEP>(const ZmqEP& ep) {
+    inline const std::string EPToString<ZmqEP>(const ZmqEP& ep) {
         return ep.ToString();
     }
 }
@@ -134,7 +134,9 @@ namespace tinyrpc{
 
     public:
         TinyCommZmq(const std::string& ip, int port = 0) 
-            : my_ep_(ip, port) {
+            : my_ep_(ip, port),
+            inbox_(10),
+            outbox_(20) {
         }
 
         virtual ~TinyCommZmq() {
@@ -196,6 +198,7 @@ namespace tinyrpc{
             SetThreadName("ZMQ receiver thread");
             zmq::context_t context;
             zmq::socket_t in_socket(context, ZMQ_DEALER);
+            in_socket.setsockopt(ZMQ_RCVHWM, 10);
             in_socket.bind(my_ep_.ToString());
             zmq_pollitem_t items[] = {
                 { in_socket, 0, ZMQ_POLLIN, 0 }
