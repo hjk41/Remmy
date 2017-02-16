@@ -2,6 +2,7 @@
 
 //#ifdef USE_ZMQ
 #if 1
+#include <atomic>
 #include <exception>
 #include <mutex>
 #include <string>
@@ -116,6 +117,11 @@ namespace tinyrpc{
             std::unordered_map<ZmqEP, zmq::socket_t> sockets_;
             std::vector<zmq::context_t> contexts_;
         public:
+            virtual ~ConnectionPool() {
+                sockets_.clear();
+                contexts_.clear();
+            }
+
             zmq::socket_t& GetSocket(const ZmqEP& ep) {
                 auto it = sockets_.find(ep);
                 if (it == sockets_.end()) {
@@ -137,6 +143,7 @@ namespace tinyrpc{
             : my_ep_(ip, port),
             inbox_(10),
             outbox_(20) {
+            kill_ = false;
         }
 
         virtual ~TinyCommZmq() {
@@ -144,10 +151,13 @@ namespace tinyrpc{
         }
 
         virtual void Stop() override {
-            inbox_.SignalForKill();
-            outbox_.SignalForKill();
-            receiver_.join();
-            sender_.join();
+            if (!kill_) {
+                kill_ = true;
+                inbox_.SignalForKill();
+                outbox_.SignalForKill();
+                receiver_.join();
+                sender_.join();
+            }
         }
 
         virtual void Start() override {
@@ -176,6 +186,7 @@ namespace tinyrpc{
     private:
         void SenderThread() {
             SetThreadName("ZMQ sender thread");
+            ConnectionPool out_sockets_;
             MessagePtr msg;
             while (outbox_.Pop(msg)) {
                 // send a message through a zmq socket
@@ -203,7 +214,7 @@ namespace tinyrpc{
             zmq_pollitem_t items[] = {
                 { in_socket, 0, ZMQ_POLLIN, 0 }
             };
-            while (true) {
+            while (!kill_) {
                 zmq_poll(items, 1, 1000);
                 if (items[0].revents & ZMQ_POLLIN) {
                     MessagePtr msg(new MessageType);
@@ -235,10 +246,10 @@ namespace tinyrpc{
             }
         }
 
-        ConnectionPool out_sockets_;
         ZmqEP my_ep_;
         std::thread receiver_;
         std::thread sender_;
+        std::atomic<bool> kill_;
         ConcurrentQueue<MessagePtr> outbox_;
         ConcurrentQueue<MessagePtr> inbox_;
     };
