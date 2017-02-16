@@ -127,7 +127,7 @@ namespace tinyrpc {
         }
 
         virtual ~TinyCommAsio() {
-            Stop();
+            StopReceiving();
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
@@ -142,7 +142,7 @@ namespace tinyrpc {
             }
         };
 
-        virtual void Stop() {
+        virtual void StopReceiving() {
             receive_queue_.SignalForKill();
         }
 

@@ -25,7 +25,7 @@ namespace tinyrpc {
 
         // start polling for messages
         virtual void Start()=0;
-        virtual void Stop() = 0;
+        virtual void StopReceiving() = 0;
         // send/receive
         virtual CommErrors Send(const MessagePtr &) = 0;
         virtual MessagePtr Recv() = 0;

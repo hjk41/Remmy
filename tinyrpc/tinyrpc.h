@@ -65,12 +65,10 @@ namespace tinyrpc {
         }
 
         ~TinyRPCStub() {
-            comm_->Stop();
+            comm_->StopReceiving();
             for (auto & thread : worker_threads_) {
                 thread.join();
             }
-            // The _comm does not belong to us. It is the caller's responsibility
-            // to destruct the _comm.
         }
 
         void StartServing() {

@@ -29,7 +29,7 @@ namespace tinyrpc {
             std::unique_lock<std::mutex> lk(mutex_);
             while (queue_.empty() && !exit_now_)
                 cv_.wait(lk);
-            if (exit_now_)
+            if (queue_.empty())
                 return false;
             TINY_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
@@ -60,7 +60,7 @@ namespace tinyrpc {
             std::unique_lock<std::mutex> lk(mutex_);
             while (queue_.size() >= max_elements_ && !exit_now_)
                 cv_.wait(lk);
-            if (exit_now_)
+            if (queue_.size() >= max_elements_)
                 return false;
             queue_.emplace_back(e);
             cv_.notify_one();

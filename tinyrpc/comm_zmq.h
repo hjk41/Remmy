@@ -147,17 +147,15 @@ namespace tinyrpc{
         }
 
         virtual ~TinyCommZmq() {
-            Stop();
+            kill_ = true;
+            inbox_.SignalForKill();
+            outbox_.SignalForKill();
+            receiver_.join();
+            sender_.join();
         }
 
-        virtual void Stop() override {
-            if (!kill_) {
-                kill_ = true;
-                inbox_.SignalForKill();
-                outbox_.SignalForKill();
-                receiver_.join();
-                sender_.join();
-            }
+        virtual void StopReceiving() override {
+            inbox_.SignalForKill();
         }
 
         virtual void Start() override {
@@ -189,6 +187,7 @@ namespace tinyrpc{
             ConnectionPool out_sockets_;
             MessagePtr msg;
             while (outbox_.Pop(msg)) {
+                LOG() << "Sending message of size " << msg->GetStreamBuffer().GetSize();
                 // send a message through a zmq socket
                 auto& buf = msg->GetStreamBuffer();
                 // prepend my address
