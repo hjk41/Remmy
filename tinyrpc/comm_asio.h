@@ -48,11 +48,6 @@ namespace tinyrpc {
     }
 
     template<>
-    inline AsioEP MakeEP<AsioEP>(const std::string& host, uint16_t port) {
-        return MakeAsioEP(host, port);
-    }
-
-    template<>
     inline void Serialize<AsioEP>(StreamBuffer& buf, const AsioEP& ep) {
         Serialize(buf, ep.address().to_string());
         Serialize(buf, ep.port());

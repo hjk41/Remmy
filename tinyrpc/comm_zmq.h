@@ -192,7 +192,7 @@ namespace tinyrpc{
             ConnectionPool out_sockets_;
             MessagePtr msg;
             while (outbox_.Pop(msg)) {
-                LOG() << "Sending message of size " << msg->GetStreamBuffer().GetSize();
+                TINY_LOG("Sending message of size %llu", msg->GetStreamBuffer().GetSize());
                 // send a message through a zmq socket
                 auto& buf = msg->GetStreamBuffer();
                 // prepend my address
