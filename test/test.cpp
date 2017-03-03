@@ -61,7 +61,7 @@ int main(int argc, char ** argv) {
     rpc.RegisterAsyncHandler<ADD_OP, int, int>(
         [](int x, int y) { cout << x << "+" << y << "=" << x + y << endl; });
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
-        [](int& x, int& y) -> int { return x*y; });
+        [](int x, int y) -> int { return x*y; });
     // now start serving
     rpc.StartServing();
 

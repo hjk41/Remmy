@@ -13,6 +13,7 @@
 #include "sleeplist.h"
 #include "tinycomm.h"
 #include "tinydatatypes.h"
+#include "unique_id.h"
 
 namespace tinyrpc {
 
@@ -183,16 +184,21 @@ namespace tinyrpc {
                 return TinyErrorCode::FAIL_SEND;
             }
             return TinyErrorCode::SUCCESS;
-		}
+        }
+
+        template <typename T>
+        struct _identity {
+            typedef T type;
+        };
 
         template<uint64_t UID, typename ResponseT, typename... RequestTs>
-        void RegisterSyncHandler(const std::function<ResponseT(RequestTs&...)>& func) {
+        void RegisterSyncHandler(typename _identity<std::function<ResponseT(RequestTs&...)>>::type func) {
             using CallbackT = std::function<ResponseT(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 TINY_ABORT("Duplicate protocol id detected: %d for %s. "
                     "Did you registered the same protocol multiple times?",
-                    UID, DecodeUniqueId(UID));
+                    UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
@@ -201,13 +207,13 @@ namespace tinyrpc {
         }
 
         template<uint64_t UID, typename... RequestTs>
-        void RegisterAsyncHandler(const std::function<void(RequestTs&...)>& func) {
+        void RegisterAsyncHandler(typename _identity<std::function<void(RequestTs&...)>>::type func) {
             using CallbackT = std::function<void(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 TINY_ABORT("Duplicate protocol id detected: %d for %s. "
                     "Did you registered the same protocol multiple times?", 
-                    UID, DecodeUniqueId(UID));
+                    UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] = 
@@ -270,7 +276,7 @@ namespace tinyrpc {
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
                 TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                     "Error unmarshalling request of protocol %s: %llu bytes are left unread",
-                    DecodeUniqueId(protocol->UniqueId()), 
+                    DecodeUniqueId(protocol->UniqueId()).c_str(), 
                     msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
                 // send response if sync call
