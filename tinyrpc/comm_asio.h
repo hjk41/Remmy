@@ -42,7 +42,8 @@ namespace tinyrpc {
     typedef asio::mutable_buffer AsioMutableBuffer;
     typedef std::shared_ptr<asio::mutable_buffer> AsioBufferPtr;
 
-    inline AsioEP MakeAsioEP(const std::string& host, uint16_t port) {
+	template<>
+    inline AsioEP MakeEP<AsioEP>(const std::string& host, uint16_t port) {
         return AsioEP(asio::ip::address::from_string(host), port);
     }
 
@@ -63,7 +64,7 @@ namespace tinyrpc {
         Deserialize(buf, host);
         uint16_t port;
         Deserialize(buf, port);
-        ep = MakeAsioEP(host, port);
+        ep = MakeEP<AsioEP>(host, port);
     }
 
     template<>

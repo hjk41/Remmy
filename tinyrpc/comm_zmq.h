@@ -92,6 +92,11 @@ namespace tinyrpc {
     inline const std::string EPToString<ZmqEP>(const ZmqEP& ep) {
         return ep.ToString();
     }
+
+	template<>
+	inline ZmqEP MakeEP<ZmqEP>(const std::string& host, uint16_t port) {
+		return ZmqEP(host, port);
+	}
 }
 
 template<>
