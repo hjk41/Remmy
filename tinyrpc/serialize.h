@@ -94,6 +94,13 @@ namespace tinyrpc {
             Deserialize(StreamBuffer & buf, T2 & val) {
             buf.Read(&val, sizeof(T));
         }
+
+        template <bool v, typename T_>
+        struct _AssertValue
+        {
+            static_assert(v, "Assertion failed <see below for more information>");
+            static bool const value = v;
+        };
         
         /*
         * Else, raise an error
@@ -101,22 +108,21 @@ namespace tinyrpc {
         template<typename T2 = T>
         static typename std::enable_if<!_has_serialize<T2>::value && !_should_do_memcpy<T2>::value, void>::type
             Serialize(StreamBuffer & buf, const T2 & val) {
-            /*static_assert(false, "Serialize not defined for this type. You can define it by:\n"
+            static_assert(_AssertValue<false, T2>::value,
+                "Serialize not defined for this type. You can define it by:\n"
                 "    1. define void Serialize(Streambuf&, const T&), or\n"
                 "    2. define T::Serialize(Streambuf&), or\n"
-                "    3. define Serializer<T>::Serialize(StreamBuf&, const T&)");*/
-            TINY_WARN("Serialize not defined for %s", typeid(val).name());
-            
+                "    3. define Serializer<T>::Serialize(StreamBuf&, const T&)");
         }
 
         template<typename T2 = T>
         static typename std::enable_if<!_has_serialize<T2>::value && !_should_do_memcpy<T2>::value, void>::type
             Deserialize(StreamBuffer & buf, T2 & val) {
-            /*static_assert(false, "Deserialize not defined for this type. You can define it by:\n"
+            static_assert(_AssertValue<false, T2>::value,
+                "Deserialize not defined for this type. You can define it by:\n"
                 "    1. define void Deserialize(Streambuf&, T&), or\n"
                 "    2. define T::Deserialize(Streambuf&), or\n"
-                "    3. define Serializer<T>::Deserialize(StreamBuf&, T&)");*/
-            TINY_WARN("DeSerialize not defined for %s", typeid(val).name());
+                "    3. define Serializer<T>::Deserialize(StreamBuf&, T&)");
         }
     };
 
