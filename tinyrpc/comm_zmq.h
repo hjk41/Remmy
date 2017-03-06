@@ -100,12 +100,14 @@ namespace tinyrpc {
 	}
 }
 
+namespace std {
 template<>
-struct std::hash<tinyrpc::ZmqEP> {
-    uint64_t operator()(const tinyrpc::ZmqEP& ep) const {
+struct hash<tinyrpc::ZmqEP> {
+    uint64_t operator()(const tinyrpc::ZmqEP &ep) const {
         return ep.Hash();
     }
 };
+}
 
 namespace tinyrpc{
     class TinyCommZmq : public TinyCommBase<ZmqEP> {
