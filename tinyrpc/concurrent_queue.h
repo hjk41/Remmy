@@ -34,6 +34,7 @@ namespace tinyrpc {
             TINY_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
             queue_.pop_front();
+            cv_.notify_all();
             return true;
         }
 
