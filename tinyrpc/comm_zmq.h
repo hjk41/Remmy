@@ -54,6 +54,11 @@ namespace tinyrpc {
             port_ = hash_ & 0xffff;
         }
 
+        void SetPort(uint16_t port) {
+            port_ = port;
+            hash_ = ((hash_ >> 16) << 16) | port;
+        }
+
         bool operator==(const ZmqEP& rhs) const {
             return hash_ == rhs.hash_;
         }
@@ -121,7 +126,7 @@ namespace tinyrpc{
              * at most 1024 open connections per context. So if we exceeds
              * this amount, we should create a new context.
             */
-            const static size_t FD_PER_CONTEXT = 1000;     
+            const static size_t FD_PER_CONTEXT = 1000;
             std::unordered_map<ZmqEP, zmq::socket_t> sockets_;
             std::vector<zmq::context_t> contexts_;
         public:
@@ -147,11 +152,28 @@ namespace tinyrpc{
         };
 
     public:
-        TinyCommZmq(const std::string& ip, int port = 0) 
+        TinyCommZmq(const std::string& ip, int port = 0)
             : my_ep_(ip, port),
+            context_(),
+            in_socket_(context_, ZMQ_DEALER),
             inbox_(10),
             outbox_(20) {
             kill_ = false;
+
+            in_socket_.setsockopt(ZMQ_RCVHWM, 10);
+            in_socket_.bind(my_ep_.ToString());
+
+            char port_str[128]; //make this sufficiently large.
+            //otherwise an error will be thrown because of invalid argument.
+            size_t size = sizeof(port_str);
+            in_socket_.getsockopt(ZMQ_LAST_ENDPOINT, &port_str, &size);
+//            printf("socket is bound at port %s\n",port_str);
+            std::string s(port_str);
+            std::string sport = s.substr(s.find_last_of(':') + 1);
+//            printf("socket is bound at port %s\n",sport.c_str());
+//            printf("socket is bound at port %d\n",atoi(sport.c_str()));
+            my_ep_.SetPort(atoi(sport.c_str()));
+            printf("socket is bound at port %d\n",my_ep_.Port());
         }
 
         virtual ~TinyCommZmq() {
@@ -162,17 +184,21 @@ namespace tinyrpc{
             sender_.join();
         }
 
+        ZmqEP EP() const {
+            return my_ep_;
+        }
+
         virtual void StopReceiving() override {
             inbox_.SignalForKill();
         }
 
         virtual void Start() override {
+
             sender_ = std::thread([this]() {
                 SenderThread();
             });
-            receiver_ = std::thread([this]() {
-                ReceiverThread();
-            });
+
+            receiver_ = std::thread(&TinyCommZmq::ReceiverThread, this);
         }
 
         virtual CommErrors Send(const MessagePtr& msg) override {
@@ -214,12 +240,8 @@ namespace tinyrpc{
 
         void ReceiverThread() {
             SetThreadName("ZMQ receiver thread");
-            zmq::context_t context;
-            zmq::socket_t in_socket(context, ZMQ_DEALER);
-            in_socket.setsockopt(ZMQ_RCVHWM, 10);
-            in_socket.bind(my_ep_.ToString());
             zmq_pollitem_t items[] = {
-                { in_socket, 0, ZMQ_POLLIN, 0 }
+                { in_socket_, 0, ZMQ_POLLIN, 0 }
             };
             while (!kill_) {
                 zmq_poll(items, 1, 1000);
@@ -228,12 +250,13 @@ namespace tinyrpc{
                     msg->SetStatus(TinyErrorCode::SUCCESS);
                     // TODO: avoid memory copy
                     zmq::message_t zmsg;
-                    in_socket.recv(&zmsg);
+                    in_socket_.recv(&zmsg);
                     TINY_LOG("received message of size %llu", zmsg.size());
+
                     const char* data = (const char*)zmsg.data();
                     uint64_t psize = *(uint64_t*)data;
                     data += sizeof(psize);
-                    TINY_ASSERT(psize == zmsg.size(), 
+                    TINY_ASSERT(psize == zmsg.size(),
                         "Unexpected package size: expected %llu, got %llu",
                         psize,
                         zmsg.size());
@@ -254,6 +277,8 @@ namespace tinyrpc{
         }
 
         ZmqEP my_ep_;
+        zmq::context_t context_;
+        zmq::socket_t in_socket_;
         std::thread receiver_;
         std::thread sender_;
         std::atomic<bool> kill_;
