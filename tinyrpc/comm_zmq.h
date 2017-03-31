@@ -152,12 +152,12 @@ namespace tinyrpc{
         };
 
     public:
-        TinyCommZmq(const std::string& ip, int port = 0)
+        TinyCommZmq(const std::string& ip, int port = 0, int queue_size = 10)
             : my_ep_(ip, port),
             context_(),
             in_socket_(context_, ZMQ_DEALER),
-            inbox_(10),
-            outbox_(20) {
+            inbox_(queue_size),
+            outbox_(queue_size) {
             kill_ = false;
 
             in_socket_.setsockopt(ZMQ_RCVHWM, 10);
