@@ -8,6 +8,8 @@
 namespace tinyrpc {
     class ProtocolBase {
     public:
+        virtual ~ProtocolBase() {}
+
         virtual uint64_t UniqueId() = 0;
         
         virtual void MarshallRequest(StreamBuffer &) = 0;

@@ -144,6 +144,7 @@ namespace tinyrpc{
                         contexts_.emplace_back();
                     }
                     zmq::socket_t sock(contexts_[context_id], ZMQ_DEALER);
+                    sock.setsockopt(ZMQ_SNDHWM, 10);
                     sock.connect(ep.ToString());
                     it = sockets_.emplace_hint(it, (const ZmqEP)ep, std::move(sock));
                 }
