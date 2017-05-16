@@ -131,12 +131,12 @@ namespace tinyrpc {
     class Serializer <std::pair<T1, T2>> {
     public:
         static void Serialize(StreamBuffer & buf, const std::pair<T1, T2> & val) {
-            Serialize(buf, val.first);
-            Serialize(buf, val.second);
+            Serializer<T1>::Serialize(buf, val.first);
+            Serializer<T2>::Serialize(buf, val.second);
         }
         static void Deserialize(StreamBuffer & buf, std::pair<T1, T2> & val) {
-            Deserialize(buf, val.first);
-            Deserialize(buf, val.second);
+            Serializer<T1>::Deserialize(buf, val.first);
+            Serializer<T2>::Deserialize(buf, val.second);
         }
     };
 
