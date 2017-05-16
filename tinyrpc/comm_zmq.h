@@ -212,7 +212,7 @@ namespace tinyrpc{
             MessagePtr msg;
             bool r = inbox_.Pop(msg);
             if (!r) {
-                TINY_WARN("Recv() killed when waiting for new messages");
+//                TINY_WARN("Recv() killed when waiting for new messages");
             }
             return msg;
         }

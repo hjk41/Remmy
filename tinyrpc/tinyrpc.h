@@ -19,13 +19,22 @@ namespace tinyrpc {
 
     class ProtocolFactoryBase {
     public:
+        virtual ~ProtocolFactoryBase() {}
         virtual ProtocolBase* CreateProtocol()=0;
     };
 
-    template<class T>
+    template<class T, class... Args>
     class ProtocolFactory : public ProtocolFactoryBase {
+        std::tuple<Args...> args_;
     public:
-        virtual T* CreateProtocol(){return new T;};
+        ProtocolFactory(Args... args) : args_(args...) {}
+
+        template <size_t... I>
+        T* create_protocol(std::index_sequence<I...>) {
+            return new T(std::get<I>(args_)...);
+        }
+
+        virtual T* CreateProtocol(){ return create_protocol(std::index_sequence_for<Args...>()); };
     };
 
     typedef std::map<uint64_t, std::pair<ProtocolFactoryBase *, void*> > ProtocolFactories;
@@ -107,12 +116,12 @@ namespace tinyrpc {
             if (is_async) {
                 return TinyErrorCode::SUCCESS;
             }
-            
+
             TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
             {
                 LockGuard l(waiting_event_lock_);
                 ep_waiting_events_[ep].erase(header.seq_num);
-            }            
+            }
             return c;
         }
         #endif
@@ -212,13 +221,24 @@ namespace tinyrpc {
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
                 TINY_ABORT("Duplicate protocol id detected: %d for %s. "
-                    "Did you registered the same protocol multiple times?", 
+                    "Did you registered the same protocol multiple times?",
                     UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
-            protocol_factory_[UID] = 
-                std::make_pair(new ProtocolFactory<AsyncProtocol<UID, RequestTs...>>(), 
+            protocol_factory_[UID] =
+                std::make_pair(new ProtocolFactory<AsyncProtocol<UID, RequestTs...>>(),
                 (void*)fp);
+        }
+
+        template<typename... RequestTs>
+        void RegisterAsyncHandlerReplaceable(size_t UID, typename _identity<std::function<void(RequestTs...)>>::type func) {
+            auto it = protocol_factory_.find(UID);
+            auto new_factory = new ProtocolFactory<AsyncProtocolReplaceable<RequestTs...>, decltype(UID), decltype(func)>(UID, func);
+            if ( it != protocol_factory_.end()) {
+                delete it->second.first;
+                it->second.first = new_factory;
+            } else
+                protocol_factory_[UID] = std::make_pair(new_factory, nullptr);
         }
     private:
         // handle messages, called by WorkerFunction
@@ -245,7 +265,7 @@ namespace tinyrpc {
 
             MessageHeader header;
             Deserialize(msg->GetStreamBuffer(), header);
-            TINY_LOG("Handle message, seq=%lld, pid=%d, async=%d", 
+            TINY_LOG("Handle message, seq=%lld, pid=%d, async=%d",
                 header.seq_num, header.protocol_id, header.is_async);
 
             if (header.seq_num < 0) {
@@ -256,27 +276,27 @@ namespace tinyrpc {
                     // null protocol indicates this request already timedout and removed
                     // so we don't need to get the response or signal the thread
                     protocol->UnmarshallResponse(msg->GetStreamBuffer());
-                    TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0, 
+                    TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                         "Error unmarshalling response of protocol %s: "
                         "%llu bytes are left unread",
-                        DecodeUniqueId(protocol->UniqueId()).c_str(), 
+                        DecodeUniqueId(protocol->UniqueId()).c_str(),
                         msg->GetStreamBuffer().GetSize());
                     sleeping_list_.SignalResponse(header.seq_num);
-                }                
+                }
             }
             else {
                 // positive seq number indicates a request
                 if (protocol_factory_.find(header.protocol_id) == protocol_factory_.end()) {
-                    TINY_ABORT("Unsupported protocol from %s, protocol ID=%d", 
+                    TINY_ABORT("Unsupported protocol from %s, protocol ID=%d",
                         EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
-                ProtocolBase* protocol = 
+                ProtocolBase* protocol =
                     protocol_factory_[header.protocol_id].first->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
                 TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                     "Error unmarshalling request of protocol %s: %llu bytes are left unread",
-                    DecodeUniqueId(protocol->UniqueId()).c_str(), 
+                    DecodeUniqueId(protocol->UniqueId()).c_str(),
                     msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
                 // send response if sync call
@@ -286,7 +306,7 @@ namespace tinyrpc {
                     Serialize(out_message->GetStreamBuffer(), header);
                     protocol->MarshallResponse(out_message->GetStreamBuffer());
                     out_message->SetRemoteAddr(msg->GetRemoteAddr());
-                    TINY_LOG("responding to %s with seq=%d, protocol_id=%d\n", 
+                    TINY_LOG("responding to %s with seq=%d, protocol_id=%d\n",
                         EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
                     comm_->Send(out_message);
                 }
@@ -317,6 +337,6 @@ namespace tinyrpc {
         std::atomic<bool> exit_now_;
         // have StartServing been called?
         std::atomic<int> serving_;
-    };    
+    };
 };
 
