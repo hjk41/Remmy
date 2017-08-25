@@ -110,7 +110,7 @@ namespace tinyrpc {
             : started_(false),
             port_(port),
             exit_now_(false) {
-            if (port == 0) return;
+//            if (port == 0) return;
             try {
                 acceptor_ = std::make_shared<AsioAcceptor>(io_service_);
                 acceptor_->open(asio::ip::tcp::v4());
@@ -197,6 +197,10 @@ namespace tinyrpc {
             receive_queue_.Pop(msg);
             return msg;
         };
+
+        AsioEP EP() {
+            return acceptor_->local_endpoint();
+        }
 
     private:
         void AcceptingThreadFunc() {
@@ -335,7 +339,6 @@ namespace tinyrpc {
                             socket->receive_buffer.Resize(package_size);
                         }
                         if (package_size >= 10 * 1024 * 1024) {
-                        //if (0) {
                             // spawn a new thread to do the long read
                             std::thread t([this, socket, package_size]() {
                                 RecvLongMessage(socket, package_size);
