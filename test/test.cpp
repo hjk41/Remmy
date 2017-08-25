@@ -85,5 +85,9 @@ int main(int argc, char ** argv) {
     }
     char c;
     cin >> c;
+
+    StreamBuffer buf;
+    Serialize(buf, ep);
+
     return 0;
 }

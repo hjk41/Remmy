@@ -49,6 +49,7 @@ namespace tinyrpc {
 
     template<>
     class Serializer<AsioEP> {
+    public:
         static void Serialize(StreamBuffer& buf, const AsioEP& ep) {
             ::tinyrpc::Serialize(buf, ep.address().to_string());
             ::tinyrpc::Serialize(buf, ep.port());
