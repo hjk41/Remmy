@@ -189,7 +189,7 @@ namespace tinyrpc{
             return my_ep_;
         }
 
-        virtual void StopReceiving() override {
+        virtual void SignalHandlerThreadsToExit() override {
             inbox_.SignalForKill();
         }
 

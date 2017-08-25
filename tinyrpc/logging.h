@@ -13,7 +13,7 @@ namespace tinyrpc {
 #define TINY_LOG_ERROR 2
 #define TINY_LOG_ASSERT 3
 
-#define TINY_LOG_LEVEL 1
+#define TINY_LOG_LEVEL 0
 
     inline std::mutex& __Log_Lock__() {
         static std::mutex log_lock;

@@ -125,22 +125,30 @@ namespace tinyrpc {
         }
 
         virtual ~TinyCommAsio() {
-            StopReceiving();
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
             }
-            io_service_.stop();
-            if (acceptor_) acceptor_->close();
-            accepting_thread_.join();
+            if (acceptor_) {
+                try {
+                    AsioSocket(io_service_).connect(MakeEP<AsioEP>("127.0.0.1", port_));
+                }
+                catch (std::exception& e) {
+                    TINY_WARN("Error informing acceptor to exit: %s", e.what());
+                }
+                accepting_thread_.join();
+                acceptor_->close();
+            }
             TINY_LOG("asio accepting thread exit");
+            io_service_.stop();
             for (int i = 0; i < NUM_WORKERS; i++) {
                 workers_[i].join();
                 TINY_LOG("asio worker thread %d exit", i);
             }
+            SignalHandlerThreadsToExit();
         };
 
-        virtual void StopReceiving() {
+        virtual void SignalHandlerThreadsToExit() {
             receive_queue_.SignalForKill();
         }
 

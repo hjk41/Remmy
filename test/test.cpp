@@ -83,11 +83,6 @@ int main(int argc, char ** argv) {
     else {
         cout << x << "*" << y << "=" << r << endl;
     }
-    char c;
-    cin >> c;
-
-    StreamBuffer buf;
-    Serialize(buf, ep);
 
     return 0;
 }

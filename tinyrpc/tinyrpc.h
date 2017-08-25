@@ -75,7 +75,7 @@ namespace tinyrpc {
         }
 
         ~TinyRPCStub() {
-            comm_->StopReceiving();
+            comm_->SignalHandlerThreadsToExit();
             for (auto & thread : worker_threads_) {
                 thread.join();
             }
