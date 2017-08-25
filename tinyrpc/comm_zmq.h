@@ -1,7 +1,6 @@
 #pragma once
 
-//#ifdef USE_ZMQ
-#if 1
+#if USE_ZMQ
 #include <atomic>
 #include <exception>
 #include <mutex>

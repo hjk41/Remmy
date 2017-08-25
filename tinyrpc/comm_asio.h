@@ -1,6 +1,6 @@
 #pragma once 
 
-#ifdef USE_ASIO
+#if USE_ASIO
 #include <array>
 #include <atomic>
 #include "asio/asio.hpp"

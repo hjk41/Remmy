@@ -7,14 +7,14 @@
 #include <vector>
 using namespace std;
 
-#define USE_ZMQ_COMM
+//#define USE_ZMQ_COMM
 
-#include "comm_asio.h"
 #include "comm_zmq.h"
 #include "message.h"
 #include "streambuffer.h"
 #include "tinyrpc.h"
 #include "unique_id.h"
+#include "comm_asio.h"
 using namespace tinyrpc;
 
 struct ComplexType {
