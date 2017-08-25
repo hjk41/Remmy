@@ -48,19 +48,20 @@ namespace tinyrpc {
     }
 
     template<>
-    inline void Serialize<AsioEP>(StreamBuffer& buf, const AsioEP& ep) {
-        Serialize(buf, ep.address().to_string());
-        Serialize(buf, ep.port());
-    }
+    class Serializer<AsioEP> {
+        static void Serialize(StreamBuffer& buf, const AsioEP& ep) {
+            ::tinyrpc::Serialize(buf, ep.address().to_string());
+            ::tinyrpc::Serialize(buf, ep.port());
+        }
 
-    template<>
-    inline void Deserialize<AsioEP>(StreamBuffer& buf, AsioEP& ep) {
-        std::string host;
-        Deserialize(buf, host);
-        uint16_t port;
-        Deserialize(buf, port);
-        ep = MakeEP<AsioEP>(host, port);
-    }
+        static void Deserizlie(StreamBuffer& buf, AsioEP& ep) {
+            std::string host;
+            ::tinyrpc::Deserialize(buf, host);
+            uint16_t port;
+            ::tinyrpc::Deserialize(buf, port);
+            ep = MakeEP<AsioEP>(host, port);
+        }
+    };
 
     template<>
     inline const std::string EPToString<AsioEP>(const AsioEP & ep) {
