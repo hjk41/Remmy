@@ -130,13 +130,6 @@ namespace tinyrpc {
                 exit_now_ = true;
             }
             if (acceptor_) {
-                try {
-                    AsioSocket(io_service_).connect(MakeEP<AsioEP>("127.0.0.1", port_));
-                }
-                catch (std::exception& e) {
-                    TINY_WARN("Error informing acceptor to exit: %s", e.what());
-                }
-                accepting_thread_.join();
                 acceptor_->close();
             }
             TINY_LOG("asio accepting thread exit");
@@ -158,7 +151,8 @@ namespace tinyrpc {
                 return;
             }
             started_ = true;
-            accepting_thread_ = std::thread([this](){AcceptingThreadFunc(); });
+            acceptor_->listen();
+            PostAsyncAccept();
             workers_.resize(NUM_WORKERS);
             for (int i = 0; i < NUM_WORKERS; i++) {
                 workers_[i] = std::thread([this, i]() {
@@ -213,55 +207,51 @@ namespace tinyrpc {
         }
 
     private:
-        void AcceptingThreadFunc() {
-            SetThreadName("asio accept thread");
-            // if port==0 is specified, acceptor_ will be null
+        void PostAsyncAccept() {
             if (!acceptor_) return;
+            AsioSocket* sock = new AsioSocket(io_service_);
+            acceptor_->async_accept(*sock, [this, sock](const asio::error_code& error) {
+                HandleAccept(sock, error);
+            });
+        }
+
+        void HandleAccept(AsioSocket* sock, const asio::error_code& error) {
             try {
-                acceptor_->listen();
-                TINY_LOG("listening on %d", acceptor_->local_endpoint().port());
-                while (true) {
-                    try {
-                        AsioSocket* sock = new AsioSocket(io_service_);
-                        acceptor_->accept(*sock);
-                        if (exit_now_) {
-                            return;
-                        }
-                        const AsioEP & remote = sock->remote_endpoint();
-                        TINY_LOG("new client connected: %s", EPToString(remote).c_str());
-                        LockGuard l(sockets_lock_);
-                        if (exit_now_) {
-                            return;
-                        }
-                        SocketBuffersPtr & socket = sockets_[remote];
-                        if (socket == nullptr) {
-                            socket = SocketBuffersPtr(new SocketBuffers());
-                        }
-                        LockGuard(socket->lock);
-                        TINY_ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
-                        if (socket->sock == nullptr) {
-                            socket->sock = sock;
-                        }
-                        else {
-                            delete sock;
-                        }
-                        socket->target = remote;
-                        PostAsyncReadNoLock(socket);
-                    }
-                    catch (...) {
-                        if (exit_now_) {
-                            return;
-                        }
-                        TINY_ABORT("something wrong has happened");
-                    }
+                if (error) {
+                    TINY_WARN("Error accepting connection: %s", error.message().c_str());
+                    return;
                 }
+                if (exit_now_) {
+                    return;
+                }
+                const AsioEP & remote = sock->remote_endpoint();
+                TINY_LOG("new client connected: %s", EPToString(remote).c_str());
+                LockGuard l(sockets_lock_);
+                if (exit_now_) {
+                    return;
+                }
+                SocketBuffersPtr & socket = sockets_[remote];
+                if (socket == nullptr) {
+                    socket = SocketBuffersPtr(new SocketBuffers());
+                }
+                LockGuard(socket->lock);
+                TINY_ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
+                if (socket->sock == nullptr) {
+                    socket->sock = sock;
+                }
+                else {
+                    delete sock;
+                }
+                socket->target = remote;
+                PostAsyncReadNoLock(socket);
             }
-            catch (std::exception & e) {
+            catch (std::exception& e) {
                 if (exit_now_) {
                     return;
                 }
                 TINY_ABORT("error occurred: %s", e.what());
             }
+            PostAsyncAccept();
         }
 
         inline void PostAsyncReadNoLock(const SocketBuffersPtr & socket) {
@@ -468,7 +458,6 @@ namespace tinyrpc {
         EPSocketMap sockets_;
         uint16_t port_;
 
-        std::thread accepting_thread_;
         std::vector<std::thread> workers_;
         std::atomic<bool> exit_now_;
     };
