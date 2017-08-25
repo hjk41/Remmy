@@ -55,7 +55,7 @@ namespace tinyrpc {
             ::tinyrpc::Serialize(buf, ep.port());
         }
 
-        static void Deserizlie(StreamBuffer& buf, AsioEP& ep) {
+        static void Deserialize(StreamBuffer& buf, AsioEP& ep) {
             std::string host;
             ::tinyrpc::Deserialize(buf, host);
             uint16_t port;
