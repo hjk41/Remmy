@@ -1,2 +1,7 @@
 *.opendb
 *.db
+.vs/
+test/x64/
+tinyrpc/x64/
+x64/
+test/test

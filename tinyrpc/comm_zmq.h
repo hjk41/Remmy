@@ -188,7 +188,7 @@ namespace tinyrpc{
             return my_ep_;
         }
 
-        virtual void StopReceiving() override {
+        virtual void SignalHandlerThreadsToExit() override {
             inbox_.SignalForKill();
         }
 
@@ -211,7 +211,7 @@ namespace tinyrpc{
             MessagePtr msg;
             bool r = inbox_.Pop(msg);
             if (!r) {
-                TINY_WARN("Recv() killed when waiting for new messages");
+//                TINY_WARN("Recv() killed when waiting for new messages");
             }
             return msg;
         }

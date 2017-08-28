@@ -7,8 +7,6 @@
 #include <vector>
 using namespace std;
 
-//#define USE_ZMQ_COMM
-
 #include "comm_zmq.h"
 #include "message.h"
 #include "streambuffer.h"
@@ -35,7 +33,7 @@ struct ComplexType {
     }
 };
 
-#ifndef USE_ZMQ_COMM
+#if USE_ASIO
 typedef tinyrpc::TinyCommAsio CommT;
 typedef tinyrpc::AsioEP EP;
 #else
@@ -48,11 +46,7 @@ int main(int argc, char ** argv) {
     const uint64_t MUL_OP = UniqueId("mul");
     // create a server
     int port = 4444;
-    #ifndef USE_ZMQ_COMM
-    CommT comm(port);
-    #else
     CommT comm("127.0.0.1", port);
-    #endif
     tinyrpc::TinyRPCStub<EP> rpc(&comm, 1);
     // Register protocols the server provides
     // Template parameters: Response type, Request Type1, Request Type2...
@@ -67,7 +61,7 @@ int main(int argc, char ** argv) {
 
     // now, create a client
 
-    #ifndef USE_ZMQ_COMM
+    #if USE_ASIO
     AsioEP ep(asio::ip::address::from_string("127.0.0.1"), port);
     #else
     EP ep("127.0.0.1", port);
@@ -83,7 +77,6 @@ int main(int argc, char ** argv) {
     else {
         cout << x << "*" << y << "=" << r << endl;
     }
-    char c;
-    cin >> c;
+
     return 0;
 }
