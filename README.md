@@ -3,11 +3,11 @@ tinyrpc
 
 tinyrpc is a simple RPC library. The communication layer can be implemented with any network library. 
 
-Currently, we suport MPI and boost::asio.
+Currently, we suport ASIO and ZeroMQ as the network layer.
 
-Current implementation uses C++11 threads and locks, so you need a new compiler to compile the code.
+Current implementation uses C++14, so you need a new compiler to compile the code.
 
-Tested on both Linux and Windows (Visual Studio 2015).
+Tested on both Linux and Windows (Visual Studio 2017).
 
 Programming interface
 =======
@@ -26,5 +26,4 @@ Programming interface
     std::cout << "1 + 2 = " << result << std::endl;
 ```
 
-
-Any questions or suggestions, feel free to ping me: chuntao.hong@gmail.com
+Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use tinyrpc.
