@@ -112,6 +112,7 @@ namespace tinyrpc {
             : started_(false),
               host_(host),
             port_(port),
+            receive_queue_(20),
             exit_now_(false) {
 //            if (port == 0) return;
             try {
