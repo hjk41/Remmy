@@ -324,8 +324,8 @@ namespace tinyrpc {
             if (exit_now_)
                 return;
             if (ec) {
-                TINY_WARN("read error from %s: %d, trying to handle failture...",
-                    socket->target.address().to_string().c_str(), socket->target.port());
+                TINY_WARN("read error from %s:%d. received_bytes=%llu trying to handle failture...",
+                    socket->target.address().to_string().c_str(), socket->target.port(), bytes_transferred);
                 HandleFailureWithEc(socket, ec);
             }
             else {
