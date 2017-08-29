@@ -189,7 +189,7 @@ namespace tinyrpc {
                     asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()));
             }
             catch (std::exception & e) {
-                TINY_WARN("communication error occurred: %s", e.what());
+                TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
                 asio::error_code err;
                 if (socket) {
                     HandleFailureWithEc(socket, err);
@@ -222,15 +222,18 @@ namespace tinyrpc {
             try {
                 if (error) {
                     TINY_WARN("Error accepting connection: %s", error.message().c_str());
+                    delete sock;
                     return;
                 }
                 if (exit_now_) {
+                    delete sock;
                     return;
                 }
                 const AsioEP & remote = sock->remote_endpoint();
                 TINY_LOG("new client connected: %s", EPToString(remote).c_str());
                 LockGuard l(sockets_lock_);
                 if (exit_now_) {
+                    delete sock;
                     return;
                 }
                 SocketBuffersPtr & socket = sockets_[remote];
@@ -321,7 +324,7 @@ namespace tinyrpc {
             if (exit_now_)
                 return;
             if (ec) {
-                TINY_WARN("read error from %s:%d, trying to handle failture...",
+                TINY_WARN("read error from %s: %d, trying to handle failture...",
                     socket->target.address().to_string().c_str(), socket->target.port());
                 HandleFailureWithEc(socket, ec);
             }
