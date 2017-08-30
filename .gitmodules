@@ -1,0 +1,3 @@
+[submodule "tinyrpc/asio"]
+	path = tinyrpc/asio
+	url = https://github.com/chriskohlhoff/asio.git

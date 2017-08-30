@@ -3,7 +3,7 @@
 #if USE_ASIO
 #include <array>
 #include <atomic>
-#include "asio/asio.hpp"
+#include "asio/asio/include/asio.hpp"
 #include <exception>
 #include <string>
 #include <thread>
@@ -35,7 +35,6 @@ namespace tinyrpc {
     typedef asio::ip::tcp::socket AsioSocket;
     typedef asio::ip::tcp::acceptor AsioAcceptor;
     typedef asio::io_service AsioService;
-    typedef asio::strand AsioStrand;
     typedef asio::ip::address AsioAddr;
     typedef std::shared_ptr<std::condition_variable> CvPtr;
     typedef std::lock_guard<std::mutex> LockGuard;
