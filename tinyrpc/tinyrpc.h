@@ -40,7 +40,16 @@ namespace tinyrpc {
         virtual T* CreateProtocol(){ return create_protocol(std::index_sequence_for<Args...>()); };
     };
 
-    typedef std::map<uint64_t, std::pair<ProtocolFactoryBase *, void*> > ProtocolFactories;
+    struct ProtocolFactoryItem {
+        ProtocolFactoryItem() {}
+        ProtocolFactoryItem(ProtocolFactoryBase* f, void* s, std::function<void(void)> t) 
+            : factory(f), handler(s), handler_delete(t) {}
+        ProtocolFactoryBase* factory;         // factory pointer
+        void* handler;                       // handler pointer
+        std::function<void(void)> handler_delete;    // handler free function
+    };
+
+    typedef std::map<uint64_t, ProtocolFactoryItem > ProtocolFactories;
 
     template<class EndPointT>
     class TinyRPCStub {
@@ -49,11 +58,13 @@ namespace tinyrpc {
         const static uint32_t RPC_ASYNC = 1;
         const static uint32_t RPC_SYNC = 0;
 
+        #pragma pack(push, 1)
         struct MessageHeader {
             int64_t seq_num;
             uint64_t protocol_id;
             uint32_t is_async;
         };
+        #pragma pack(pop)
     public:
         TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
             : comm_(comm),
@@ -81,6 +92,10 @@ namespace tinyrpc {
             comm_->SignalHandlerThreadsToExit();
             for (auto & thread : worker_threads_) {
                 thread.join();
+            }
+            for (auto& p : protocol_factory_) {
+                delete p.second.factory;
+                p.second.handler_delete();
             }
         }
 
@@ -214,8 +229,9 @@ namespace tinyrpc {
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
-                std::make_pair(new ProtocolFactory<SyncProtocol<UID, ResponseT, RequestTs...>>(),
-                (void*)fp);
+                ProtocolFactoryItem(new ProtocolFactory<SyncProtocol<UID, ResponseT, RequestTs...>>(),
+                (void*)fp,
+                    [=]() {delete fp; });
         }
 
         template<uint64_t UID, typename... RequestTs>
@@ -229,8 +245,9 @@ namespace tinyrpc {
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
-                std::make_pair(new ProtocolFactory<AsyncProtocol<UID, RequestTs...>>(),
-                (void*)fp);
+                ProtocolFactoryItem(new ProtocolFactory<AsyncProtocol<UID, RequestTs...>>(),
+                (void*)fp,
+                    [=]() {delete fp; });
         }
 
         template<typename... RequestTs>
@@ -238,10 +255,10 @@ namespace tinyrpc {
             auto it = protocol_factory_.find(UID);
             auto new_factory = new ProtocolFactory<AsyncProtocolReplaceable<RequestTs...>, decltype(UID), decltype(func)>(UID, func);
             if ( it != protocol_factory_.end()) {
-                delete it->second.first;
-                it->second.first = new_factory;
+                delete it->second.factory;
+                it->second.factory = new_factory;
             } else
-                protocol_factory_[UID] = std::make_pair(new_factory, nullptr);
+                protocol_factory_[UID] = ProtocolFactoryItem(new_factory, nullptr, []() {});
         }
     private:
         // handle messages, called by WorkerFunction
@@ -295,13 +312,13 @@ namespace tinyrpc {
                     return;
                 }
                 ProtocolBase* protocol =
-                    protocol_factory_[header.protocol_id].first->CreateProtocol();
+                    protocol_factory_[header.protocol_id].factory->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
                 TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                     "Error unmarshalling request of protocol %s: %llu bytes are left unread",
                     DecodeUniqueId(protocol->UniqueId()).c_str(),
                     msg->GetStreamBuffer().GetSize());
-                protocol->HandleRequest(protocol_factory_[header.protocol_id].second);
+                protocol->HandleRequest(protocol_factory_[header.protocol_id].handler);
                 // send response if sync call
                 if (!header.is_async) {
                     MessagePtr out_message(new MessageType);

@@ -36,6 +36,7 @@ namespace std {
 namespace tinyrpc {
     typedef asio::ip::tcp::endpoint AsioEP;
     typedef asio::ip::tcp::socket AsioSocket;
+    typedef std::unique_ptr<AsioSocket> AsioSocketPtr;
     typedef asio::ip::tcp::acceptor AsioAcceptor;
     typedef asio::io_service AsioService;
     typedef asio::ip::address AsioAddr;
@@ -214,41 +215,41 @@ namespace tinyrpc {
     private:
         void PostAsyncAccept() {
             if (!acceptor_) return;
-            AsioSocket* sock = new AsioSocket(io_service_);
+            AsioSocket* sock(new AsioSocket(io_service_));
             acceptor_->async_accept(*sock, [this, sock](const asio::error_code& error) {
-                HandleAccept(sock, error);
+                HandleAccept(AsioSocketPtr(sock), error);
             });
         }
 
-        void HandleAccept(AsioSocket* sock, const asio::error_code& error) {
+        void HandleAccept(AsioSocketPtr&& sock, const asio::error_code& error) {
             try {
                 if (error) {
-                    TINY_WARN("Error accepting connection: %s", error.message().c_str());
-                    delete sock;
+                    if (error.value() != asio::error::operation_aborted) {
+                        TINY_WARN("Error accepting connection: %s", error.message().c_str());
+                    }
                     return;
                 }
                 if (exit_now_) {
-                    delete sock;
                     return;
                 }
                 const AsioEP & remote = sock->remote_endpoint();
                 TINY_LOG("new client connected: %s", EPToString(remote).c_str());
                 LockGuard l(sockets_lock_);
                 if (exit_now_) {
-                    delete sock;
                     return;
                 }
                 SocketBuffersPtr & socket = sockets_[remote];
                 if (socket == nullptr) {
                     socket = SocketBuffersPtr(new SocketBuffers());
                 }
-                LockGuard(socket->lock);
+                LockGuard l2(socket->lock);
                 TINY_ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
                 if (socket->sock == nullptr) {
-                    socket->sock = sock;
+                    socket->sock = sock.release();
                 }
                 else {
-                    delete sock;
+                    delete socket->sock;
+                    socket->sock = sock.release();
                 }
                 socket->target = remote;
                 PostAsyncReadNoLock(socket);

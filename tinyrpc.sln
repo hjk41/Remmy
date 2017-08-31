@@ -1,14 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.10
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyrpc", "tinyrpc\TinyRPC.vcxproj", "{FCA5E023-5C06-4031-AE09-9B504B335B4A}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test", "test\test.vcxproj", "{A4FD8760-9476-408A-A03B-7B138DF60FDB}"
-	ProjectSection(ProjectDependencies) = postProject
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A} = {FCA5E023-5C06-4031-AE09-9B504B335B4A}
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,14 +13,6 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Debug|Win32.ActiveCfg = Debug|Win32
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Debug|Win32.Build.0 = Debug|Win32
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Debug|x64.ActiveCfg = Debug|x64
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Debug|x64.Build.0 = Debug|x64
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|Win32.ActiveCfg = Release|Win32
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|Win32.Build.0 = Release|Win32
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|x64.ActiveCfg = Release|x64
-		{FCA5E023-5C06-4031-AE09-9B504B335B4A}.Release|x64.Build.0 = Release|x64
 		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|Win32.ActiveCfg = Debug|Win32
 		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|Win32.Build.0 = Debug|Win32
 		{A4FD8760-9476-408A-A03B-7B138DF60FDB}.Debug|x64.ActiveCfg = Debug|x64
@@ -37,5 +24,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EDC61AB3-A0BA-4753-8C76-2EECA36D900D}
 	EndGlobalSection
 EndGlobal
