@@ -14,7 +14,7 @@
 
 namespace tinyrpc {
 
-#ifdef _WIN32
+#if (defined _WIN32) || (__GNUC__ >= 5)
     template<typename T>
     struct TriviallyCopyable {
         static const bool value = std::is_trivially_copyable<T>::value;

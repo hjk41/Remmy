@@ -1,6 +1,7 @@
 #pragma once
 
 #if USE_ASIO
+#define WIN32_LEAN_AND_MEAN
 #include <array>
 #include <atomic>
 #include "asio/asio/include/asio.hpp"
@@ -20,15 +21,17 @@
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "comm_asio"
 
-template<>
-class std::hash<asio::ip::tcp::endpoint> {
-public:
-    size_t operator() (const asio::ip::tcp::endpoint & ep) const {
-        uint64_t r = ep.address().to_v4().to_ulong();
-        return ((r << 16) | ep.port());
-        //return std::hash<std::string>()(ep.address().to_string());
-    }
-};
+namespace std {
+    template<>
+    class hash<asio::ip::tcp::endpoint> {
+    public:
+        size_t operator() (const asio::ip::tcp::endpoint & ep) const {
+            uint64_t r = ep.address().to_v4().to_ulong();
+            return ((r << 16) | ep.port());
+            //return std::hash<std::string>()(ep.address().to_string());
+        }
+    };
+}
 
 namespace tinyrpc {
     typedef asio::ip::tcp::endpoint AsioEP;

@@ -5,6 +5,8 @@
 namespace tinyrpc {
     #ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
+    #define WIN32_NOMINMAX
+    #include <WinSock2.h>
     #include <Windows.h>
     const DWORD MS_VC_EXCEPTION = 0x406D1388;
 
@@ -39,12 +41,6 @@ namespace tinyrpc {
         std::string str = std::string(threadName) + std::to_string(threadId);
         SetThreadName(str.c_str());
     }
-
-    //void SetThreadName(std::thread* thread, const char* threadName)
-    //{
-    //    DWORD threadId = ::GetThreadId(static_cast<HANDLE>(thread->native_handle()));
-    //    SetThreadName(threadId, threadName);
-    //}
     #else
     inline void SetThreadName(std::thread* thread, const char* threadName) {
         auto handle = thread->native_handle();

@@ -8,8 +8,11 @@
 #include <thread>
 #include <vector>
 
+#include "comm_asio.h"
+#include "comm_zmq.h"
 #include "logging.h"
 #include "protocol.h"
+#include "set_thread_name.h"
 #include "sleeplist.h"
 #include "tinycomm.h"
 #include "tinydatatypes.h"
