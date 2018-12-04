@@ -27,3 +27,19 @@ Programming interface
 ```
 
 Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use tinyrpc.
+
+Contributing
+=======
+Everyone is welcome to contribute to this project, either to improve the code or documentation.
+
+The whole library can be divided into these parts:
+
+* tinyrpc.h: contains TinyRPCStub class, which is the entry point
+
+* serialize.h: implements the Serializer template class
+
+* tinycomm.h: declares the communication layer, which can be implemented with any network libray, such as asio (as in comm_asio.h), ZeroMQ, etc.
+
+* other stuff: incluing logging, message structure, buffer, concurrent queue, unique id, ...
+
+I will try to write as much document as possible in the files, but you are also welcome to contribute standalone document files.

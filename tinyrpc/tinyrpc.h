@@ -1,3 +1,8 @@
+/**
+ * \file    tinyrpc.h.
+ *
+ * Declares the TinyRPCStub class, which is the main entry of the library.
+ */
 #pragma once
 #include <atomic>
 #include <cstdint>
@@ -20,12 +25,19 @@
 
 namespace tinyrpc {
 
+    /** A factory class used to create instances of protocols. This is an internal facility class. */
     class ProtocolFactoryBase {
     public:
         virtual ~ProtocolFactoryBase() {}
         virtual ProtocolBase* CreateProtocol()=0;
     };
 
+    /**
+     * A template factory that creates protocol instances of type T.
+     *
+     * \tparam T    Protocol type.
+     * \tparam Args Type of the arguments used to create the protocol instance.
+     */
     template<class T, class... Args>
     class ProtocolFactory : public ProtocolFactoryBase {
         std::tuple<Args...> args_;
@@ -37,20 +49,48 @@ namespace tinyrpc {
             return new T(std::get<I>(args_)...);
         }
 
+        /**
+         * Creates a protocol instance.
+         *
+         * \return  Pointer to the newly created instance.
+         */
         virtual T* CreateProtocol(){ return create_protocol(std::index_sequence_for<Args...>()); };
     };
 
+    /** Each ProtocolFactoryItem stores:  
+     *      1. a pointer to a factory class that produces a type of protocol instance  
+     *      2. the handler to handle that protocol  
+     *      3. a function to delete the handler
+     */
     struct ProtocolFactoryItem {
         ProtocolFactoryItem() {}
         ProtocolFactoryItem(ProtocolFactoryBase* f, void* s, std::function<void(void)> t) 
             : factory(f), handler(s), handler_delete(t) {}
-        ProtocolFactoryBase* factory;         // factory pointer
-        void* handler;                       // handler pointer
-        std::function<void(void)> handler_delete;    // handler free function
+
+        /** pointer to a factory that produces a type of protocol instance */
+        ProtocolFactoryBase* factory;
+        /** handler to handle a protocol */
+        void* handler;
+        /** handler free function */
+        std::function<void(void)> handler_delete;
     };
 
+    /** A map that holds UID->ProtocolFactoryItem mapping. 
+     * We associate each protocol with a unique id. When we send a RPC, we attach the UID to the head
+     * of the message. So the receiver can tell which type of protocol the message contains. Then 
+     * the receiver can query this map and get the corresponding factory, use that factory to deserialize
+     * the message into a protocol instance, and call the corresponding handler. */
     typedef std::map<uint64_t, ProtocolFactoryItem > ProtocolFactories;
 
+    /**
+     * A tiny RPC stub. This is the main entry to the RPC library. It implements the logic to RPC calls,
+     * i.e., serialize the request, send the message, wait for response message, and deserilize the
+     * response message.
+     *
+     * \tparam EndPointT    Type of the node address. Different communication library can choose to use
+     *                      different types of EP. For example, ASIO may use HOST:IP, while MPI could
+     *                      use an integer.
+     */
     template<class EndPointT>
     class TinyRPCStub {
         typedef Message<EndPointT> MessageType;
@@ -58,14 +98,32 @@ namespace tinyrpc {
         const static uint32_t RPC_ASYNC = 1;
         const static uint32_t RPC_SYNC = 0;
 
+        /** A message header contains meta info for this message. */
         #pragma pack(push, 1)
         struct MessageHeader {
+            /** Each message is assigned a unique sequence id (unique w.r.t. this RPCStub). When sending
+             *  a request, seq_num is assigned by the caller stub as a monotonically increasing integer.
+             *  When sending a response to a request REQ, this number is the negative form of the unique
+             *  id of REQ. */
             int64_t seq_num;
+
+            /** Identifier for the protocol. Each protocol must have a unique ID so callee can tell which
+             *  handler to call for this request. */
             uint64_t protocol_id;
+
+            /** Is this an async call? An async call in TinyRPC has no response. The caller just sends out
+             *  the request and returns. If it needs to know the result, it must send a synchronous request
+             *  or the callee must make a call so that the caller knows what happened. */
             uint32_t is_async;
         };
         #pragma pack(pop)
     public:
+        /**
+         * Constructor
+         *
+         * \param [in,out] comm         The communicator.
+         * \param          num_workers  (Optional) Number of RPC worker threads.
+         */
         TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
             : comm_(comm),
             seq_num_(1),
@@ -95,17 +153,26 @@ namespace tinyrpc {
             }
             for (auto& p : protocol_factory_) {
                 delete p.second.factory;
-                p.second.handler_delete();
+                if (p.second.handler_delete) p.second.handler_delete();
             }
         }
 
+        /** Starts serving for RPC calls */
         void StartServing() {
             comm_->Start();
             serving_ = true;
         }
 
-        #if 0
-        // calls a remote function
+        /**
+         * Issues a RPC call for a function: ResponseT rpc_call(RequestT1 param1, RequestT2 param2, ...)
+         *
+         * \param          ep       The callee's address.
+         * \param [in,out] protocol The protocol.
+         * \param          timeout  (Optional) Timeout in milliseconds. 0 if no timeout.
+         * \param          is_async (Optional) The response.
+         *
+         * \return  A TinyErrorCode.
+         */
         TinyErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
             TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
@@ -142,8 +209,20 @@ namespace tinyrpc {
             }
             return c;
         }
-        #endif
 
+        /**
+         * Issues a RPC call for a function: ResponseT rpc_call(RequestT1 param1, RequestT2 param2, ...)
+         *
+         * \tparam uid          UID of the protocol
+         * \tparam ResponseT    Type of the response.
+         * \tparam RequestTs    Type of the request parameters. 
+         * \param          ep       The callee's address.
+         * \param          timeout  Timeout in milliseconds. 0 if no timeout.
+         * \param [in,out] resp     The response.
+         * \param          reqs     Request parameters.
+         *
+         * \return  A TinyErrorCode.
+         */
         template<uint64_t uid, typename ResponseT, typename... RequestTs>
         TinyErrorCode RpcCall(const EndPointT& ep,
             uint64_t timeout,
@@ -188,6 +267,16 @@ namespace tinyrpc {
             return c;
         }
 
+        /**
+         * Issues an asynchronous RPC call for a function: void rpc_call(RequestT1 param1, RequestT2 param2, ...)
+         *
+         * \tparam uid          UID of the protocol
+         * \tparam RequestTs    Type of the request parameters.
+         * \param ep    The address of the callee.
+         * \param reqs  Request parameters.
+         *
+         * \return  A TinyErrorCode.
+         */
 		template<uint64_t uid, typename... RequestTs>
         TinyErrorCode RpcCallAsync(const EndPointT& ep,
 			const RequestTs&... reqs) {
@@ -218,6 +307,36 @@ namespace tinyrpc {
             typedef T type;
         };
 
+        /**
+         * Registers a protocol
+         *
+         * \tparam ProtocolT    Type of the protocol.
+         * \param [in,out] server   Server pointer, as passed to Protocol::HandleRequest().
+         */
+        template<typename ProtocolT>
+        void RegisterProtocol(void* server) {
+            uint64_t UID = ProtocolT().UniqueId();
+            if (protocol_factory_.find(UID) != protocol_factory_.end()) {
+                // ID() should be unique, and should not be re-registered
+                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
+                    "Did you registered the same protocol multiple times?",
+                    UID, DecodeUniqueId(UID).c_str());
+            }
+            protocol_factory_[UID] =
+                ProtocolFactoryItem(new ProtocolFactory<ProtocolT>(), server, nullptr);
+        }
+
+        /**
+         * Registers a synchronous call handler to a protocol with UID.
+         * 
+         * \note This is NOT thread-safe. It should not happen in parallel with RPC call or other
+         *       register operations.
+         *
+         * \tparam UID          UID of the protocol.
+         * \tparam ResponseT    Type of the response.
+         * \tparam RequestTs    Type of the request parameters.
+         * \param [in,out] func The handler, must have form std::function<ResponseT(RequestTs...)>.
+         */
         template<uint64_t UID, typename ResponseT, typename... RequestTs>
         void RegisterSyncHandler(typename _identity<std::function<ResponseT(RequestTs&...)>>::type func) {
             using CallbackT = std::function<ResponseT(RequestTs&...)>;
@@ -234,6 +353,16 @@ namespace tinyrpc {
                     [=]() {delete fp; });
         }
 
+        /**
+         * Registers an asynchronous handler to a protocol with UID
+         *
+         * \note This is NOT thread-safe. It should not happen in parallel with RPC call or other
+         *       register operations.
+         *
+         * \tparam UID          UID of the protocol.
+         * \tparam RequestTs    Type of the request parameters.
+         * \param [in,out] func The handler, must have form std::function<ResponseT(RequestTs...)>.
+         */
         template<uint64_t UID, typename... RequestTs>
         void RegisterAsyncHandler(typename _identity<std::function<void(RequestTs&...)>>::type func) {
             using CallbackT = std::function<void(RequestTs&...)>;
@@ -250,6 +379,16 @@ namespace tinyrpc {
                     [=]() {delete fp; });
         }
 
+        /**
+         * Registers an asynchronous handler to a protocol with UID, replacing existing handler.
+         * 
+         * \note This is NOT thread-safe. It should not happen in parallel with RPC call or other
+         *       register operations.
+         *
+         * \tparam UID          UID of the protocol.
+         * \tparam RequestTs    Type of the request parameters.
+         * \param [in,out] func The handler, must have form std::function<ResponseT(RequestTs...)>.
+         */
         template<typename... RequestTs>
         void RegisterAsyncHandlerReplaceable(size_t UID, typename _identity<std::function<void(RequestTs...)>>::type func) {
             auto it = protocol_factory_.find(UID);
@@ -261,7 +400,16 @@ namespace tinyrpc {
                 protocol_factory_[UID] = ProtocolFactoryItem(new_factory, nullptr, []() {});
         }
     private:
-        // handle messages, called by WorkerFunction
+        /**
+         * Handles a message by:
+         *     1. deserialize the content into requests  
+         *     2. calls handler  
+         *     3. serialize the response  
+         *     4. send the response message back  
+         * This is called by RPC worker threads.
+         *
+         * \param [in,out] msg  The message.
+         */
         void HandleMessage(MessagePtr& msg) {
             if (msg->GetStatus() != TinyErrorCode::SUCCESS) {
                 TINY_WARN("RPC get a message of communication failure of machine %s, status=%d",
@@ -334,7 +482,13 @@ namespace tinyrpc {
             }
         }
 
+        /**
+         * Gets a new sequence number for the messages.
+         *
+         * \return  The new sequence number.
+         */
         int64_t GetNewSeqNum() {
+            // TODO: use atomic add instead of lock
             LockGuard l(seq_lock_);
             if (seq_num_ >= INT64_MAX - 1)
                 seq_num_ = 1;
@@ -342,20 +496,23 @@ namespace tinyrpc {
         }
     private:
         TinyCommBase<EndPointT> * comm_;
-        // for request handling
         ProtocolFactories protocol_factory_;
-        // threads
         std::vector<std::thread> worker_threads_;
-        // sequence number
+
         int64_t seq_num_;
         std::mutex seq_lock_;
-        // waiting queue
+
+        /** When a thread calls synchronous RPC, it will wait for the response in this list. 
+         *  When we receive a response, we will check its sequence id and wake up the corresponding
+         *  thread. */
         SleepingList<ProtocolBase> sleeping_list_;
         std::mutex waiting_event_lock_;
         std::unordered_map<EndPointT, std::set<int64_t>> ep_waiting_events_;
-        // exit flag
+
+        /** Exit flag. If this is set, the worker threads will exit. */
         std::atomic<bool> exit_now_;
-        // have StartServing been called?
+
+        /** have StartServing been called? */
         std::atomic<int> serving_;
     };
 };

@@ -33,6 +33,43 @@ struct ComplexType {
     }
 };
 
+/**   
+ * A RPC protocol defines the request, response and handler of the RPC call. 
+ * This is used to demonstrate the usage of old Protocol-based interface.
+ */
+class RPC_Protocol : public ProtocolWithUID<UniqueId("RPC_Proto")> {
+public:
+    ComplexType req;
+    size_t resp;
+
+    virtual void MarshallRequest(StreamBuffer & buf) {
+        req.Serialize(buf);
+    }
+
+    virtual void MarshallResponse(StreamBuffer & buf) {
+        Serialize(buf, resp);
+    }
+
+    virtual void UnmarshallRequest(StreamBuffer & buf) {
+        req.Deserialize(buf);
+    }
+
+    virtual void UnmarshallResponse(StreamBuffer & buf) {
+        Deserialize(buf, resp);
+    }
+
+    virtual void HandleRequest(void *server) {
+        // as a demonstration, this protocol returns req.x + req.y + req.z.size(),
+        // and adds this value to server, which is just a std::atomic<size_t>
+        std::atomic<size_t>* s = static_cast<std::atomic<size_t>*>(server);
+        resp = req.x + (size_t)req.y + req.z.size();
+        // note that the handler can be executed by multiple threads at the same time,
+        // we need to make it thread-safe
+        s->fetch_add(resp);
+        TINY_WARN("Server is now %lu", s->load());
+    }
+};
+
 #if USE_ASIO
 typedef tinyrpc::TinyCommAsio CommT;
 typedef tinyrpc::AsioEP EP;
@@ -53,9 +90,12 @@ int main(int argc, char ** argv) {
     // The UniqueId() function returns compile-time determined uint64_t given a string.
     // It is a convinient way of getting unique ids for different rpcs.
     rpc.RegisterAsyncHandler<ADD_OP, int, int>(
-        [](int x, int y) { cout << x << "+" << y << "=" << x + y << endl; });
+        [](int x, int y) { TINY_WARN("Received ADD(%d, %d)", x, y); });
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
         [](int x, int y) -> int { return x*y; });
+    // now register with the protocol-based interface
+    std::atomic<size_t> size = 0;
+    rpc.RegisterProtocol<RPC_Protocol>(&size);
     // now start serving
     rpc.StartServing();
 
@@ -67,6 +107,7 @@ int main(int argc, char ** argv) {
     EP ep("127.0.0.1", port);
     #endif
 
+    // test rpc calls
     rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
     int x = 2, y = 3;
     int r = 0;
@@ -78,5 +119,26 @@ int main(int argc, char ** argv) {
         cout << x << "*" << y << "=" << r << endl;
     }
 
+    // test with protocol-based interface
+    RPC_Protocol proto;
+    proto.req.x = 10;
+    proto.req.y = 1.0;
+    proto.req.z = "12345";
+    ec = rpc.RpcCall(ep, proto);
+    if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+        cout << "error occurred when making sync call: " << (int)ec << endl;
+    }
+    else {
+        cout << "resp = " << proto.resp << endl;
+    }
+
+    proto.req.x = 3;
+    ec = rpc.RpcCall(ep, proto);
+    if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+        cout << "error occurred when making sync call: " << (int)ec << endl;
+    }
+    else {
+        cout << "resp = " << proto.resp << endl;
+    }
     return 0;
 }

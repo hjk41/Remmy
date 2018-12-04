@@ -23,6 +23,24 @@ namespace tinyrpc {
         virtual void HandleRequest(void *server) = 0;
     };
 
+    template<uint64_t UID>
+    class ProtocolWithUID : public ProtocolBase {
+    public:
+        virtual uint64_t UniqueId() override {
+            return UID;
+        }
+
+        virtual void MarshallRequest(StreamBuffer &) = 0;
+
+        virtual void MarshallResponse(StreamBuffer &) = 0;
+
+        virtual void UnmarshallRequest(StreamBuffer &) = 0;
+
+        virtual void UnmarshallResponse(StreamBuffer &) = 0;
+
+        virtual void HandleRequest(void *server) = 0;
+    };
+
     template<class RequestT, class ResponseT>
     class ProtocolTemplate : public ProtocolBase {
     public:
