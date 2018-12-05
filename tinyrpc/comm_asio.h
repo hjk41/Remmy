@@ -225,14 +225,12 @@ namespace tinyrpc {
                 }
                 return;
             }
-            // async_write is a composed operation, we need to lock the socket until the send is finished
-            socket->lock.lock();
-            asio::async_write(*(socket->sock), 
+            LockGuard l(socket->lock);
+            socket->sock->async_send(
                 asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()), 
                 [callback, msg, socket, this](const asio::error_code& error, size_t bytes_written) {
                     if (callback) callback(msg, error ? CommErrors::SEND_ERROR : CommErrors::SUCCESS);
                     // unlock the socket
-                    socket->lock.unlock();
                     if (error) {
                         TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), error.message());
                         HandleFailureWithEc(socket, error);
