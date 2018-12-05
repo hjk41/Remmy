@@ -207,6 +207,16 @@ namespace tinyrpc{
             return CommErrors::SUCCESS;
         }
 
+        virtual void AsyncSend(
+            const MessagePtr & msg,
+            const std::function<void(const MessagePtr& msg, CommErrors ec)>& callback) override
+        {
+            // TODO: implement async send in zmq
+            // for now, use sync send
+            CommErrors error = Send(msg);
+            if(callback) callback(msg, error);
+        }
+
         virtual MessagePtr Recv() override {
             MessagePtr msg;
             bool r = inbox_.Pop(msg);

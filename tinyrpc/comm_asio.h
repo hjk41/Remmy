@@ -202,6 +202,45 @@ namespace tinyrpc {
             return CommErrors::SUCCESS;
         };
 
+        virtual void AsyncSend(
+            const MessagePtr & msg,
+            const std::function<void(const MessagePtr& msg, CommErrors ec)>& callback) override
+        {
+            // pad a uint64_t size at the head of the buffer
+            uint64_t size = msg->GetStreamBuffer().GetSize() + sizeof(uint64_t);
+            msg->GetStreamBuffer().WriteHead(size);
+            SocketBuffersPtr socket;
+            try {
+                socket = GetSocket(msg->GetRemoteAddr());
+                if (socket == nullptr) {
+                    TINY_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
+                    return;
+                }
+            }
+            catch (std::exception & e) {
+                TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
+                asio::error_code err;
+                if (socket) {
+                    HandleFailureWithEc(socket, err);
+                }
+                return;
+            }
+            // async_write is a composed operation, we need to lock the socket until the send is finished
+            socket->lock.lock();
+            asio::async_write(*(socket->sock), 
+                asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()), 
+                [callback, msg, socket, this](const asio::error_code& error, size_t bytes_written) {
+                    if (callback) callback(msg, error ? CommErrors::SEND_ERROR : CommErrors::SUCCESS);
+                    // unlock the socket
+                    socket->lock.unlock();
+                    if (error) {
+                        TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), error.message());
+                        HandleFailureWithEc(socket, error);
+                    }
+                }
+            );
+        }
+
         virtual MessagePtr Recv() override {
             MessagePtr msg = nullptr;
             receive_queue_.Pop(msg);
