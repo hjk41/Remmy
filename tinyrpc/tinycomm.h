@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include "message.h"
@@ -22,6 +23,8 @@ namespace tinyrpc {
      */
     template<class EndPointT>
     class TinyCommBase {
+    protected:
+        const static uint32_t PKG_MAGIC_HEAD = 0x82011205;
     public:
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
@@ -48,6 +51,16 @@ namespace tinyrpc {
          * \return  CommErrors.
          */
         virtual CommErrors Send(const MessagePtr & msg) = 0;
+
+        /**
+         * Asynchronous send. The communication layer claims ownership of the MesagePtr and returns
+         * immediately. The callback function must be called after the message has been sent.
+         *
+         * \param msg       The message.
+         * \param callback  The callback.
+         */
+        virtual void AsyncSend(const MessagePtr & msg, 
+            const std::function<void(const MessagePtr& msg, CommErrors ec)>& callback) = 0;
 
         /**
          * Receives a message. The source of the message is contained in the Message struct.

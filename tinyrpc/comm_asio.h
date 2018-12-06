@@ -85,6 +85,9 @@ namespace tinyrpc {
 
     class TinyCommAsio : public TinyCommBase<AsioEP>
     {
+        const static size_t HEAD_SIZE = sizeof(PKG_MAGIC_HEAD) + sizeof(uint64_t);
+        typedef decltype(PKG_MAGIC_HEAD) MagicNum;
+
         const static int NUM_WORKERS = 1;
         const static int RECEIVE_BUFFER_SIZE = 1024;
 
@@ -177,9 +180,11 @@ namespace tinyrpc {
 
         // send/receive
         virtual CommErrors Send(const MessagePtr & msg) override {
-            // pad a uint64_t size at the head of the buffer
-            uint64_t size = msg->GetStreamBuffer().GetSize() + sizeof(uint64_t);
+            // pad a uint64_t size at the head of the buffer, this size includes magic number and the size itself
+            uint64_t size = msg->GetStreamBuffer().GetSize() + sizeof(uint64_t) + sizeof(PKG_MAGIC_HEAD);
             msg->GetStreamBuffer().WriteHead(size);
+            // pad a 32-bit magic number at the front of message so we can avoid misconnection
+            msg->GetStreamBuffer().WriteHead(PKG_MAGIC_HEAD);
             SocketBuffersPtr socket;
             try {
                 socket = GetSocket(msg->GetRemoteAddr());
@@ -201,6 +206,45 @@ namespace tinyrpc {
             }
             return CommErrors::SUCCESS;
         };
+
+        virtual void AsyncSend(
+            const MessagePtr & msg,
+            const std::function<void(const MessagePtr& msg, CommErrors ec)>& callback) override
+        {
+            // pad a uint64_t size at the head of the buffer, this size includes magic number and the size itself
+            uint64_t size = msg->GetStreamBuffer().GetSize() + sizeof(uint64_t) + sizeof(PKG_MAGIC_HEAD);
+            msg->GetStreamBuffer().WriteHead(size);
+            // pad a 32-bit magic number at the front of message so we can avoid misconnection
+            msg->GetStreamBuffer().WriteHead(PKG_MAGIC_HEAD);
+            SocketBuffersPtr socket;
+            try {
+                socket = GetSocket(msg->GetRemoteAddr());
+                if (socket == nullptr) {
+                    TINY_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
+                    return;
+                }
+            }
+            catch (std::exception & e) {
+                TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
+                asio::error_code err;
+                if (socket) {
+                    HandleFailureWithEc(socket, err);
+                }
+                return;
+            }
+            LockGuard l(socket->lock);
+            socket->sock->async_send(
+                asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()), 
+                [callback, msg, socket, this](const asio::error_code& error, size_t bytes_written) {
+                    if (callback) callback(msg, error ? CommErrors::SEND_ERROR : CommErrors::SUCCESS);
+                    // unlock the socket
+                    if (error) {
+                        TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), error.message());
+                        HandleFailureWithEc(socket, error);
+                    }
+                }
+            );
+        }
 
         virtual MessagePtr Recv() override {
             MessagePtr msg = nullptr;
@@ -316,9 +360,9 @@ namespace tinyrpc {
             message->SetRemoteAddr(socket->target);
             message->GetStreamBuffer().SetBuf(
                 (char*)socket->receive_buffer.RenewBuf(RECEIVE_BUFFER_SIZE), package_size);
-            uint64_t size;
-            // remove the head uint64_t before passing it to RPC
-            message->GetStreamBuffer().Read(&size, sizeof(size));
+            char header[HEAD_SIZE];
+            // remove the header
+            message->GetStreamBuffer().Read(header, HEAD_SIZE);
             message->SetStatus(TinyErrorCode::SUCCESS);
             receive_queue_.Push(message);
         }
@@ -338,11 +382,24 @@ namespace tinyrpc {
                 TINY_LOG("received %llu bytes from socket", bytes_transferred);
                 socket->receive_buffer.MarkReceiveBytes(bytes_transferred);
                 size_t bytes_received_total = socket->receive_buffer.GetReceivedBytes();
-                // packet will arrive with the uint64_t size at the head
-                if (bytes_received_total >= sizeof(size_t)) {
-                    uint64_t package_size = *(uint64_t*)socket->receive_buffer.GetBuf();
-                    TINY_ASSERT(package_size < (size_t)16 * 1024 * 1024 * 1024,
-                        "alarmingly large package_size: %lld", package_size);
+                // the first four bytes is the magic number
+                char* buf = (char*)(socket->receive_buffer.GetBuf());
+                if (bytes_received_total >= sizeof(PKG_MAGIC_HEAD)) {
+                    MagicNum mn = *(MagicNum*)buf;
+                    if (mn != PKG_MAGIC_HEAD) {
+                        // someting is wrong with this connection, we should close it
+                        sl.~lock_guard();
+                        HandleFailure(socket, "Magic number does not match.");
+                        return;
+                    }
+                }
+                // after the magic number, there is the uint64_t size
+                if (bytes_received_total >= HEAD_SIZE) {
+                    // package size includes the size of the header
+                    uint64_t package_size = *(uint64_t*)(buf + sizeof(MagicNum));
+                    if (package_size > (size_t)16 * 1024 * 1024 * 1024) {
+                        TINY_WARN("alarmingly large package_size: %lld", package_size);
+                    }
                     if (bytes_received_total < package_size) {
                         if (socket->receive_buffer.Size() < package_size) {
                             socket->receive_buffer.Resize(package_size);
@@ -369,30 +426,39 @@ namespace tinyrpc {
                             uint64_t package_start = 0;
                             uint64_t bytes_left = bytes_received_total;
                             while (true) {
-                                package_size = *(uint64_t*)(received_buf + package_start);
-                                TINY_ASSERT(package_start < bytes_received_total, "something is really wrong");
                                 TINY_LOG("A complete packet is received, size=%lld", package_size);
-                                char * package_buf = new char[package_size];
-                                memcpy(package_buf, received_buf + package_start, package_size);
+                                char * package_buf = new char[package_size - HEAD_SIZE];
+                                memcpy(package_buf, received_buf + package_start + HEAD_SIZE, package_size - HEAD_SIZE);
                                 MessagePtr message(new MessageType);
                                 message->SetRemoteAddr(socket->target);
-                                message->GetStreamBuffer().SetBuf(package_buf, package_size);
-                                uint64_t size;
-                                // remove the head uint64_t before passing it to RPC
-                                message->GetStreamBuffer().Read(&size, sizeof(size));
+                                message->GetStreamBuffer().SetBuf(package_buf, package_size - HEAD_SIZE);
                                 message->SetStatus(TinyErrorCode::SUCCESS);
                                 receive_queue_.Push(message);
                                 package_start += package_size;
                                 bytes_left -= package_size;
-                                if (bytes_left < sizeof(uint64_t)
-                                    || bytes_left < *(uint64_t*)(received_buf + package_start)) {
+                                if (bytes_left < HEAD_SIZE) {
+                                    // partial header
+                                    socket->receive_buffer.Compact(package_start);
                                     break;
                                 }
+                                else {
+                                    // has header
+                                    MagicNum mn = *(MagicNum*)(received_buf + package_start);
+                                    if (mn != PKG_MAGIC_HEAD) {
+                                        // someting is wrong with this connection, we should close it
+                                        sl.~lock_guard();
+                                        HandleFailure(socket, "Magic number does not match.");
+                                        return;
+                                    }
+                                    package_size = *(uint64_t*)(received_buf + package_start + sizeof(MagicNum));
+                                    TINY_ASSERT(package_start < bytes_received_total, "something is really wrong");
+                                    if (bytes_left < package_size) {
+                                        // partial package
+                                        socket->receive_buffer.Compact(package_start);
+                                        break;
+                                    }
+                                }
                             }
-                            // ok, now we have something left in the buffer, but not a whole package
-                            // we should move the content to the front of the buffer and continue
-                            // receiving messages
-                            socket->receive_buffer.Compact(package_start);
                         }
                     }
                 }

@@ -188,26 +188,29 @@ namespace tinyrpc {
             message->SetRemoteAddr(ep);
             if (!is_async) {
                 sleeping_list_.AddEvent(header.seq_num, &protocol);
-                LockGuard l(waiting_event_lock_);
-                ep_waiting_events_[ep].insert(header.seq_num);
+                {
+                    LockGuard l(waiting_event_lock_);
+                    ep_waiting_events_[ep].insert(header.seq_num);
+                }
+                CommErrors err = comm_->Send(message);
+                if (err != CommErrors::SUCCESS) {
+                    TINY_WARN("error during rpc_call-send: %d", err);
+                    sleeping_list_.RemoveEvent(header.seq_num);
+                    return TinyErrorCode::FAIL_SEND;
+                }
+                // wait for response
+                TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
+                {
+                    LockGuard l(waiting_event_lock_);
+                    ep_waiting_events_[ep].erase(header.seq_num);
+                }
+                return c;
             }
-            CommErrors err = comm_->Send(message);
-            if (err != CommErrors::SUCCESS) {
-                TINY_WARN("error during rpc_call-send: %d", err);
-                sleeping_list_.RemoveEvent(header.seq_num);
-                return TinyErrorCode::FAIL_SEND;
-            }
-            // wait for signal
-            if (is_async) {
+            else {
+                // async, just call asyncSend and return
+                comm_->AsyncSend(message, nullptr);
                 return TinyErrorCode::SUCCESS;
             }
-
-            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
-            {
-                LockGuard l(waiting_event_lock_);
-                ep_waiting_events_[ep].erase(header.seq_num);
-            }
-            return c;
         }
 
         /**
@@ -280,25 +283,19 @@ namespace tinyrpc {
 		template<uint64_t uid, typename... RequestTs>
         TinyErrorCode RpcCallAsync(const EndPointT& ep,
 			const RequestTs&... reqs) {
-            bool is_async = true;
             TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
             header.seq_num = GetNewSeqNum();
             header.protocol_id = uid;
-            header.is_async = is_async;
+            header.is_async = true;
             Serialize(message->GetStreamBuffer(), header);
             TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
             message->SetRemoteAddr(ep);
-            CommErrors err = comm_->Send(message);
-            if (err != CommErrors::SUCCESS) {
-                TINY_WARN("error during rpc_call-send: %d", err);
-                sleeping_list_.RemoveEvent(header.seq_num);
-                return TinyErrorCode::FAIL_SEND;
-            }
+            comm_->AsyncSend(message, nullptr);
             return TinyErrorCode::SUCCESS;
         }
 
