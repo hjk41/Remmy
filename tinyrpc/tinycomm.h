@@ -23,6 +23,8 @@ namespace tinyrpc {
      */
     template<class EndPointT>
     class TinyCommBase {
+    protected:
+        const static uint32_t PKG_MAGIC_HEAD = 0x82011205;
     public:
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;

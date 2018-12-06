@@ -90,7 +90,7 @@ int main(int argc, char ** argv) {
     // The UniqueId() function returns compile-time determined uint64_t given a string.
     // It is a convinient way of getting unique ids for different rpcs.
     rpc.RegisterAsyncHandler<ADD_OP, int, int>(
-        [](int x, int y) { TINY_WARN("Received ADD(%d, %d)", x, y); });
+        [](int x, int y) { TINY_LOG("Received ADD(%d, %d)", x, y); });
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
         [](int x, int y) -> int { return x*y; });
     // now register with the protocol-based interface
@@ -108,15 +108,19 @@ int main(int argc, char ** argv) {
     #endif
 
     // test rpc calls
-    rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
-    int x = 2, y = 3;
-    int r = 0;
-    auto ec = rpc.RpcCall<MUL_OP>(ep, 0, r, x, y);
-    if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
-        cout << "error occurred when making sync call: " << (int)ec << endl;
-    }
-    else {
-        cout << x << "*" << y << "=" << r << endl;
+    for(int i = 0; i < 1000; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
+    tinyrpc::TinyErrorCode ec;
+    for (int i = 0; i < 1024; i++) {
+        int x = rand(), y = rand();
+        int r = 0;
+        ec = rpc.RpcCall<MUL_OP>(ep, 0, r, x, y);
+        if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+            cout << "error occurred when making sync call: " << (int)ec << endl;
+        }
+        else {
+            //cout << x << " * " << y << " = " << r << endl;
+            TINY_ASSERT(x * y == r, "wrong result!");
+        }
     }
 
     // test with protocol-based interface
