@@ -7,12 +7,12 @@
 #include <vector>
 using namespace std;
 
-#include "comm_zmq.h"
-#include "message.h"
-#include "streambuffer.h"
-#include "simple_rpc.h"
-#include "unique_id.h"
-#include "comm_asio.h"
+#include "simple_rpc/comm_zmq.h"
+#include "simple_rpc/message.h"
+#include "simple_rpc/streambuffer.h"
+#include "simple_rpc/simple_rpc.h"
+#include "simple_rpc/unique_id.h"
+#include "simple_rpc/comm_asio.h"
 using namespace simple_rpc;
 
 struct ComplexType {
@@ -74,8 +74,8 @@ public:
 typedef simple_rpc::TinyCommAsio CommT;
 typedef simple_rpc::AsioEP EP;
 #else
-typedef tinyrpc::TinyCommZmq CommT;
-typedef tinyrpc::ZmqEP EP;
+typedef simple_rpc::TinyCommZmq CommT;
+typedef simple_rpc::ZmqEP EP;
 #endif
 
 int main(int argc, char ** argv) {
