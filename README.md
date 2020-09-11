@@ -63,7 +63,7 @@ public:
     std::cout << "response = " << proto.resp << std::endl;
 ```
 
-Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use tinyrpc.
+Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use SimpleRPC.
 
 Contributing
 =======
@@ -71,11 +71,13 @@ Everyone is welcome to contribute to this project, either to improve the code or
 
 The whole library can be divided into these parts:
 
-* tinyrpc.h: contains RPCStub class, which is the entry point
+* rpc_stub.h: contains RPCStub class, which is the entry point
+
+* protocol.h: declares the interface of protocols
 
 * serialize.h: implements the Serializer template class
 
-* tinycomm.h: declares the communication layer, which can be implemented with any network libray, such as asio (as in comm_asio.h), ZeroMQ, etc.
+* comm.h: declares the communication layer, which can be implemented with any network libray, such as asio (as in comm_asio.h), ZeroMQ, etc.
 
 * other stuff: incluing logging, message structure, buffer, concurrent queue, unique id, ...
 
