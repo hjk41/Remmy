@@ -1,9 +1,9 @@
-tinyrpc
+SimpleRPC
 =======
 
-tinyrpc is a simple RPC library. The communication layer can be implemented with any network library. 
+SimpleRPC is a simple but usable RPC library. Due to the structual simplicity of the code, it is sutable for use in education as well.
 
-Currently, we suport ASIO and ZeroMQ as the network layer.
+The communication layer can be implemented with any network library. Currently, we suport ASIO and ZeroMQ as the network layer.
 
 Current implementation uses C++14, so you need a new compiler to compile the code.
 
