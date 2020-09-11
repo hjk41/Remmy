@@ -1,13 +1,13 @@
-SimpleRPC
+Remmy
 =======
 
-SimpleRPC is a simple but usable RPC library. Thanks to the structual simplicity of the code, it is sutable for use in education as well.
+Remmy is a simple but usable RPC library. Thanks to the structural simplicity of the code, it is suitable for use in education as well.
 
-The communication layer can be implemented with any network library. Currently, we suport ASIO and ZeroMQ as the network layer.
+The communication layer can be implemented with any network library. Currently, we support ASIO and ZeroMQ as the network layer.
 
 Current implementation uses C++14, so you need a new compiler to compile the code.
 
-Tested on both Linux and Windows (Visual Studio 2017).
+Tested on both Linux and Windows (Visual Studio 2019).
 
 Programming interface
 =======
@@ -63,7 +63,7 @@ public:
     std::cout << "response = " << proto.resp << std::endl;
 ```
 
-Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use SimpleRPC.
+Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use Remmy.
 
 Contributing
 =======

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.4)
 
-project(SimpleRPC)
+project(Remmy)
 
 # communication layer
 if (NOT COMM_LAYER)
@@ -27,16 +27,16 @@ endif()
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(simple_rpc_test test/test.cpp)
-target_include_directories(simple_rpc_test PUBLIC ${CMAKE_SOURCE_DIR})
-target_link_libraries(simple_rpc_test pthread)
+add_executable(remmy_test test/test.cpp)
+target_include_directories(remmy_test PUBLIC ${CMAKE_SOURCE_DIR})
+target_link_libraries(remmy_test pthread)
 
 if(COMM_LAYER STREQUAL "ASIO")
-    target_include_directories(simple_rpc_test PUBLIC deps/asio/asio/include)
+    target_include_directories(remmy_test PUBLIC deps/asio/asio/include)
 elseif(COMM_LAYER STREQUAL "ZMQ")
-    target_include_directories(simple_rpc_test PUBLIC deps/zmq)
-    target_link_directories(simple_rpc_test PUBLIC deps/zmq)
-    target_link_libraries(simple_rpc_test PUBLIC zmq)
+    target_include_directories(remmy_test PUBLIC deps/zmq)
+    target_link_directories(remmy_test PUBLIC deps/zmq)
+    target_link_libraries(remmy_test PUBLIC zmq)
 else()
     message(FATAL_ERROR "Currently only ASIO and ZMQ are supported as communication layer.")
 endif(COMM_LAYER STREQUAL "ASIO")
