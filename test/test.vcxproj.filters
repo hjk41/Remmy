@@ -20,49 +20,52 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\tinyrpc\comm_asio.h">
+    <ClInclude Include="..\remmy\comm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\comm_zmq.h">
+    <ClInclude Include="..\remmy\comm_asio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\concurrent_queue.h">
+    <ClInclude Include="..\remmy\comm_zmq.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\logging.h">
+    <ClInclude Include="..\remmy\concurrent_queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\message.h">
+    <ClInclude Include="..\remmy\datatypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\protocol.h">
+    <ClInclude Include="..\remmy\logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\serialize.h">
+    <ClInclude Include="..\remmy\message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\set_thread_name.h">
+    <ClInclude Include="..\remmy\protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\singleton.h">
+    <ClInclude Include="..\remmy\rpc_stub.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\sleeplist.h">
+    <ClInclude Include="..\remmy\serialize.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\streambuffer.h">
+    <ClInclude Include="..\remmy\set_thread_name.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinycomm.h">
+    <ClInclude Include="..\remmy\remmy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinydatatypes.h">
+    <ClInclude Include="..\remmy\singleton.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinyrpc.h">
+    <ClInclude Include="..\remmy\sleeplist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\unique_id.h">
+    <ClInclude Include="..\remmy\streambuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\remmy\unique_id.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,7 +1,7 @@
 /**
- * \file    tinyrpc.h.
+ * \file    rpc_stub.h.
  *
- * Declares the TinyRPCStub class, which is the main entry of the library.
+ * Declares the RPCStub class, which is the main entry of the library.
  */
 #pragma once
 #include <atomic>
@@ -19,11 +19,11 @@
 #include "protocol.h"
 #include "set_thread_name.h"
 #include "sleeplist.h"
-#include "tinycomm.h"
-#include "tinydatatypes.h"
+#include "comm.h"
+#include "datatypes.h"
 #include "unique_id.h"
 
-namespace tinyrpc {
+namespace remmy {
 
     /** A factory class used to create instances of protocols. This is an internal facility class. */
     class ProtocolFactoryBase {
@@ -83,7 +83,7 @@ namespace tinyrpc {
     typedef std::map<uint64_t, ProtocolFactoryItem > ProtocolFactories;
 
     /**
-     * A tiny RPC stub. This is the main entry to the RPC library. It implements the logic to RPC calls,
+     * A RPC stub. This is the main entry to the RPC library. It implements the logic to RPC calls,
      * i.e., serialize the request, send the message, wait for response message, and deserilize the
      * response message.
      *
@@ -92,7 +92,7 @@ namespace tinyrpc {
      *                      use an integer.
      */
     template<class EndPointT>
-    class TinyRPCStub {
+    class RPCStub {
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
         const static uint32_t RPC_ASYNC = 1;
@@ -111,7 +111,7 @@ namespace tinyrpc {
              *  handler to call for this request. */
             uint64_t protocol_id;
 
-            /** Is this an async call? An async call in TinyRPC has no response. The caller just sends out
+            /** Is this an async call? An async call in RPC has no response. The caller just sends out
              *  the request and returns. If it needs to know the result, it must send a synchronous request
              *  or the callee must make a call so that the caller knows what happened. */
             uint32_t is_async;
@@ -124,7 +124,7 @@ namespace tinyrpc {
          * \param [in,out] comm         The communicator.
          * \param          num_workers  (Optional) Number of RPC worker threads.
          */
-        TinyRPCStub(TinyCommBase<EndPointT> * comm, int num_workers = 1)
+        RPCStub(CommBase<EndPointT> * comm, int num_workers = 1)
             : comm_(comm),
             seq_num_(1),
             worker_threads_(num_workers),
@@ -137,7 +137,7 @@ namespace tinyrpc {
                     while (!exit_now_) {
                         MessagePtr msg = comm_->Recv();
                         if (msg == nullptr) {
-                            TINY_LOG("RPC worker %d exiting", i);
+                            REMMY_LOG("RPC worker %d exiting", i);
                             return;
                         }
                         HandleMessage(msg);
@@ -146,7 +146,7 @@ namespace tinyrpc {
             }
         }
 
-        ~TinyRPCStub() {
+        ~RPCStub() {
             comm_->SignalHandlerThreadsToExit();
             for (auto & thread : worker_threads_) {
                 thread.join();
@@ -171,10 +171,10 @@ namespace tinyrpc {
          * \param          timeout  (Optional) Timeout in milliseconds. 0 if no timeout.
          * \param          is_async (Optional) The response.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
-        TinyErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
-            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
+        ErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
@@ -182,7 +182,7 @@ namespace tinyrpc {
             header.protocol_id = protocol.UniqueId();
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
             Serialize(message->GetStreamBuffer(), header);
-            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             protocol.MarshallRequest(message->GetStreamBuffer());
             // send message
             message->SetRemoteAddr(ep);
@@ -194,12 +194,12 @@ namespace tinyrpc {
                 }
                 CommErrors err = comm_->Send(message);
                 if (err != CommErrors::SUCCESS) {
-                    TINY_WARN("error during rpc_call-send: %d", err);
+                    REMMY_WARN("error during rpc_call-send: %d", err);
                     sleeping_list_.RemoveEvent(header.seq_num);
-                    return TinyErrorCode::FAIL_SEND;
+                    return ErrorCode::FAIL_SEND;
                 }
                 // wait for response
-                TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
+                ErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
                 {
                     LockGuard l(waiting_event_lock_);
                     ep_waiting_events_[ep].erase(header.seq_num);
@@ -209,7 +209,7 @@ namespace tinyrpc {
             else {
                 // async, just call asyncSend and return
                 comm_->AsyncSend(message, nullptr);
-                return TinyErrorCode::SUCCESS;
+                return ErrorCode::SUCCESS;
             }
         }
 
@@ -224,14 +224,14 @@ namespace tinyrpc {
          * \param [in,out] resp     The response.
          * \param          reqs     Request parameters.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
         template<uint64_t uid, typename ResponseT, typename... RequestTs>
-        TinyErrorCode RpcCall(const EndPointT& ep,
+        ErrorCode RpcCall(const EndPointT& ep,
             uint64_t timeout,
             ResponseT& resp,
             const RequestTs&... reqs) {
-            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             bool is_async = false;
             MessagePtr message(new MessageType);
             // write header
@@ -240,7 +240,7 @@ namespace tinyrpc {
             header.protocol_id = uid;
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
             Serialize(message->GetStreamBuffer(), header);
-            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
             message->SetRemoteAddr(ep);
@@ -252,16 +252,16 @@ namespace tinyrpc {
             }
             CommErrors err = comm_->Send(message);
             if (err != CommErrors::SUCCESS) {
-                TINY_WARN("error during rpc_call-send: %d", err);
+                REMMY_WARN("error during rpc_call-send: %d", err);
                 sleeping_list_.RemoveEvent(header.seq_num);
-                return TinyErrorCode::FAIL_SEND;
+                return ErrorCode::FAIL_SEND;
             }
             // wait for signal
             if (is_async) {
-                return TinyErrorCode::SUCCESS;
+                return ErrorCode::SUCCESS;
             }
 
-            TinyErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
+            ErrorCode c = sleeping_list_.WaitForResponse(header.seq_num, timeout);
             {
                 LockGuard l(waiting_event_lock_);
                 ep_waiting_events_[ep].erase(header.seq_num);
@@ -278,12 +278,12 @@ namespace tinyrpc {
          * \param ep    The address of the callee.
          * \param reqs  Request parameters.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
 		template<uint64_t uid, typename... RequestTs>
-        TinyErrorCode RpcCallAsync(const EndPointT& ep,
+        ErrorCode RpcCallAsync(const EndPointT& ep,
 			const RequestTs&... reqs) {
-            TINY_ASSERT(serving_, "TinyRPCStub::StartServing() must be called before RpcCall");
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
@@ -291,12 +291,12 @@ namespace tinyrpc {
             header.protocol_id = uid;
             header.is_async = true;
             Serialize(message->GetStreamBuffer(), header);
-            TINY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
             message->SetRemoteAddr(ep);
             comm_->AsyncSend(message, nullptr);
-            return TinyErrorCode::SUCCESS;
+            return ErrorCode::SUCCESS;
         }
 
         template <typename T>
@@ -315,9 +315,9 @@ namespace tinyrpc {
             uint64_t UID = ProtocolT().UniqueId();
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
-                    "Did you registered the same protocol multiple times?",
-                    UID, DecodeUniqueId(UID).c_str());
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
+                           "Did you registered the same protocol multiple times?",
+                            UID, DecodeUniqueId(UID).c_str());
             }
             protocol_factory_[UID] =
                 ProtocolFactoryItem(new ProtocolFactory<ProtocolT>(), server, nullptr);
@@ -339,9 +339,9 @@ namespace tinyrpc {
             using CallbackT = std::function<ResponseT(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
-                    "Did you registered the same protocol multiple times?",
-                    UID, DecodeUniqueId(UID).c_str());
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
+                           "Did you registered the same protocol multiple times?",
+                            UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
@@ -365,9 +365,9 @@ namespace tinyrpc {
             using CallbackT = std::function<void(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                TINY_ABORT("Duplicate protocol id detected: %d for %s. "
-                    "Did you registered the same protocol multiple times?",
-                    UID, DecodeUniqueId(UID).c_str());
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
+                           "Did you registered the same protocol multiple times?",
+                            UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
@@ -408,9 +408,9 @@ namespace tinyrpc {
          * \param [in,out] msg  The message.
          */
         void HandleMessage(MessagePtr& msg) {
-            if (msg->GetStatus() != TinyErrorCode::SUCCESS) {
-                TINY_WARN("RPC get a message of communication failure of machine %s, status=%d",
-                    EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
+            if (msg->GetStatus() != ErrorCode::SUCCESS) {
+                REMMY_WARN("RPC get a message of communication failure of machine %s, status=%d",
+                           EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
                 const EndPointT & ep = msg->GetRemoteAddr();
                 std::set<int64_t> events;
                 {
@@ -430,8 +430,8 @@ namespace tinyrpc {
 
             MessageHeader header;
             Deserialize(msg->GetStreamBuffer(), header);
-            TINY_LOG("Handle message, seq=%lld, pid=%d, async=%d",
-                header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Handle message, seq=%lld, pid=%d, async=%d",
+                      header.seq_num, header.protocol_id, header.is_async);
 
             if (header.seq_num < 0) {
                 // negative seq number indicates a response to a sync rpc call
@@ -441,28 +441,28 @@ namespace tinyrpc {
                     // null protocol indicates this request already timedout and removed
                     // so we don't need to get the response or signal the thread
                     protocol->UnmarshallResponse(msg->GetStreamBuffer());
-                    TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
+                    REMMY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                         "Error unmarshalling response of protocol %s: "
                         "%llu bytes are left unread",
-                        DecodeUniqueId(protocol->UniqueId()).c_str(),
-                        msg->GetStreamBuffer().GetSize());
+                                 DecodeUniqueId(protocol->UniqueId()).c_str(),
+                                 msg->GetStreamBuffer().GetSize());
                     sleeping_list_.SignalResponse(header.seq_num);
                 }
             }
             else {
                 // positive seq number indicates a request
                 if (protocol_factory_.find(header.protocol_id) == protocol_factory_.end()) {
-                    TINY_ABORT("Unsupported protocol from %s, protocol ID=%d",
-                        EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
+                    REMMY_ABORT("Unsupported protocol from %s, protocol ID=%d",
+                                EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
                 ProtocolBase* protocol =
                     protocol_factory_[header.protocol_id].factory->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
-                TINY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
-                    "Error unmarshalling request of protocol %s: %llu bytes are left unread",
-                    DecodeUniqueId(protocol->UniqueId()).c_str(),
-                    msg->GetStreamBuffer().GetSize());
+                REMMY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
+                             "Error unmarshalling request of protocol %s: %llu bytes are left unread",
+                             DecodeUniqueId(protocol->UniqueId()).c_str(),
+                             msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].handler);
                 // send response if sync call
                 if (!header.is_async) {
@@ -471,8 +471,8 @@ namespace tinyrpc {
                     Serialize(out_message->GetStreamBuffer(), header);
                     protocol->MarshallResponse(out_message->GetStreamBuffer());
                     out_message->SetRemoteAddr(msg->GetRemoteAddr());
-                    TINY_LOG("responding to %s with seq=%d, protocol_id=%d\n",
-                        EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
+                    REMMY_LOG("responding to %s with seq=%d, protocol_id=%d\n",
+                              EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
                     comm_->Send(out_message);
                 }
                 delete protocol;
@@ -492,7 +492,7 @@ namespace tinyrpc {
             return seq_num_++;
         }
     private:
-        TinyCommBase<EndPointT> * comm_;
+        CommBase<EndPointT> * comm_;
         ProtocolFactories protocol_factory_;
         std::vector<std::thread> worker_threads_;
 

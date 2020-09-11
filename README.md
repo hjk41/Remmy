@@ -1,13 +1,13 @@
-SimpleRPC
+Remmy
 =======
 
-SimpleRPC is a simple but usable RPC library. Thanks to the structual simplicity of the code, it is sutable for use in education as well.
+Remmy is a simple but usable RPC library. Thanks to the structural simplicity of the code, it is suitable for use in education as well.
 
-The communication layer can be implemented with any network library. Currently, we suport ASIO and ZeroMQ as the network layer.
+The communication layer can be implemented with any network library. Currently, we support ASIO and ZeroMQ as the network layer.
 
 Current implementation uses C++14, so you need a new compiler to compile the code.
 
-Tested on both Linux and Windows (Visual Studio 2017).
+Tested on both Linux and Windows (Visual Studio 2019).
 
 Programming interface
 =======
@@ -43,7 +43,7 @@ public:
         // note that the handler can be executed by multiple threads at the same time,
         // we need to make it thread-safe
         s->fetch_add(resp);
-        TINY_WARN("Server is now %lu", s->load());
+        REMMY_WARN("Server is now %lu", s->load());
     }
 };
 
@@ -63,7 +63,7 @@ public:
     std::cout << "response = " << proto.resp << std::endl;
 ```
 
-Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use tinyrpc.
+Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use Remmy.
 
 Contributing
 =======
@@ -71,11 +71,13 @@ Everyone is welcome to contribute to this project, either to improve the code or
 
 The whole library can be divided into these parts:
 
-* tinyrpc.h: contains TinyRPCStub class, which is the entry point
+* rpc_stub.h: contains RPCStub class, which is the entry point
+
+* protocol.h: declares the interface of protocols
 
 * serialize.h: implements the Serializer template class
 
-* tinycomm.h: declares the communication layer, which can be implemented with any network libray, such as asio (as in comm_asio.h), ZeroMQ, etc.
+* comm.h: declares the communication layer, which can be implemented with any network libray, such as asio (as in comm_asio.h), ZeroMQ, etc.
 
 * other stuff: incluing logging, message structure, buffer, concurrent queue, unique id, ...
 

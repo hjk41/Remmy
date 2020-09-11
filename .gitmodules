@@ -1,6 +1,6 @@
-[submodule "tinyrpc/zmq"]
-	path = tinyrpc/zmq
+[submodule "deps/zmq"]
+	path = deps/zmq
 	url = https://github.com/zeromq/cppzmq.git
-[submodule "tinyrpc/asio"]
-	path = tinyrpc/asio
+[submodule "deps/asio"]
+	path = deps/asio
 	url = https://github.com/hjk41/asio.git

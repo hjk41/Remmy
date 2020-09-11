@@ -7,13 +7,8 @@
 #include <vector>
 using namespace std;
 
-#include "comm_zmq.h"
-#include "message.h"
-#include "streambuffer.h"
-#include "tinyrpc.h"
-#include "unique_id.h"
-#include "comm_asio.h"
-using namespace tinyrpc;
+#include "remmy/remmy.h"
+using namespace remmy;
 
 struct ComplexType {
     int x;
@@ -21,15 +16,15 @@ struct ComplexType {
     std::string z;
 
     void Serialize(StreamBuffer& buf) const {
-        tinyrpc::Serialize(buf, x);
-        tinyrpc::Serialize(buf, y);
-        tinyrpc::Serialize(buf, z);
+        remmy::Serialize(buf, x);
+        remmy::Serialize(buf, y);
+        remmy::Serialize(buf, z);
     }
 
-    void Deserialize(tinyrpc::StreamBuffer& buf) {
-        tinyrpc::Deserialize(buf, x);
-        tinyrpc::Deserialize(buf, y);
-        tinyrpc::Deserialize(buf, z);
+    void Deserialize(remmy::StreamBuffer& buf) {
+        remmy::Deserialize(buf, x);
+        remmy::Deserialize(buf, y);
+        remmy::Deserialize(buf, z);
     }
 };
 
@@ -66,16 +61,16 @@ public:
         // note that the handler can be executed by multiple threads at the same time,
         // we need to make it thread-safe
         s->fetch_add(resp);
-        TINY_WARN("Server is now %lu", s->load());
+        REMMY_WARN("Server is now %lu", s->load());
     }
 };
 
 #if USE_ASIO
-typedef tinyrpc::TinyCommAsio CommT;
-typedef tinyrpc::AsioEP EP;
+typedef remmy::CommAsio CommT;
+typedef remmy::AsioEP EP;
 #else
-typedef tinyrpc::TinyCommZmq CommT;
-typedef tinyrpc::ZmqEP EP;
+typedef remmy::CommZmq CommT;
+typedef remmy::ZmqEP EP;
 #endif
 
 int main(int argc, char ** argv) {
@@ -84,13 +79,13 @@ int main(int argc, char ** argv) {
     // create a server
     int port = 4444;
     CommT comm("127.0.0.1", port);
-    tinyrpc::TinyRPCStub<EP> rpc(&comm, 1);
+    remmy::RPCStub<EP> rpc(&comm, 1);
     // Register protocols the server provides
     // Template parameters: Response type, Request Type1, Request Type2...
     // The UniqueId() function returns compile-time determined uint64_t given a string.
     // It is a convinient way of getting unique ids for different rpcs.
     rpc.RegisterAsyncHandler<ADD_OP, int, int>(
-        [](int x, int y) { TINY_LOG("Received ADD(%d, %d)", x, y); });
+        [](int x, int y) { REMMY_LOG("Received ADD(%d, %d)", x, y); });
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
         [](int x, int y) -> int { return x*y; });
     // now register with the protocol-based interface
@@ -108,18 +103,18 @@ int main(int argc, char ** argv) {
     #endif
 
     // test rpc calls
-    for(int i = 0; i < 1000; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
-    tinyrpc::TinyErrorCode ec;
-    for (int i = 0; i < 1024; i++) {
+    for(int i = 0; i < 1; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
+    remmy::ErrorCode ec;
+    for (int i = 0; i < 1; i++) {
         int x = rand(), y = rand();
         int r = 0;
         ec = rpc.RpcCall<MUL_OP>(ep, 0, r, x, y);
-        if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+        if (ec != remmy::ErrorCode::SUCCESS) {
             cout << "error occurred when making sync call: " << (int)ec << endl;
         }
         else {
             //cout << x << " * " << y << " = " << r << endl;
-            TINY_ASSERT(x * y == r, "wrong result!");
+            REMMY_ASSERT(x * y == r, "wrong result!");
         }
     }
 
@@ -129,7 +124,7 @@ int main(int argc, char ** argv) {
     proto.req.y = 1.0;
     proto.req.z = "12345";
     ec = rpc.RpcCall(ep, proto);
-    if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+    if (ec != remmy::ErrorCode::SUCCESS) {
         cout << "error occurred when making sync call: " << (int)ec << endl;
     }
     else {
@@ -138,7 +133,7 @@ int main(int argc, char ** argv) {
 
     proto.req.x = 3;
     ec = rpc.RpcCall(ep, proto);
-    if (ec != tinyrpc::TinyErrorCode::SUCCESS) {
+    if (ec != remmy::ErrorCode::SUCCESS) {
         cout << "error occurred when making sync call: " << (int)ec << endl;
     }
     else {

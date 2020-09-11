@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-namespace tinyrpc {
+namespace remmy {
     namespace _detail {
         // encodes ASCII characters to 6bit encoding
         constexpr unsigned char encoding_table[] = {

@@ -1,8 +1,8 @@
 #pragma once
 
-namespace tinyrpc
+namespace remmy
 {
-    enum class TinyErrorCode
+    enum class ErrorCode
     {
         SUCCESS = 0,
         FAIL_SEND = 1,

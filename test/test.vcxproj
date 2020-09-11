@@ -14,19 +14,19 @@
     <ProjectGuid>{A4FD8760-9476-408A-A03B-7B138DF60FDB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>test</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -56,7 +56,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);WIN32;_WIN32_WINNT=0x0A00;ASIO_STANDALONE=1;USE_ASIO=1;USE_ZMQ=0;ZMQ_STATIC</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\tinyrpc;$(SolutionDir)\..\zmq</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)deps\zmq;$(SolutionDir)deps\asio\asio\include;$(SolutionDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -75,7 +75,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);WIN32;_WIN32_WINNT=0x0A00;ASIO_STANDALONE=1;USE_ASIO=1;USE_ZMQ=0;ZMQ_STATIC</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\tinyrpc;$(SolutionDir)\..\zmq</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)deps\zmq;$(SolutionDir)deps\asio\asio\include;$(SolutionDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -90,21 +90,22 @@
     <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\tinyrpc\comm_asio.h" />
-    <ClInclude Include="..\tinyrpc\comm_zmq.h" />
-    <ClInclude Include="..\tinyrpc\concurrent_queue.h" />
-    <ClInclude Include="..\tinyrpc\logging.h" />
-    <ClInclude Include="..\tinyrpc\message.h" />
-    <ClInclude Include="..\tinyrpc\protocol.h" />
-    <ClInclude Include="..\tinyrpc\serialize.h" />
-    <ClInclude Include="..\tinyrpc\set_thread_name.h" />
-    <ClInclude Include="..\tinyrpc\singleton.h" />
-    <ClInclude Include="..\tinyrpc\sleeplist.h" />
-    <ClInclude Include="..\tinyrpc\streambuffer.h" />
-    <ClInclude Include="..\tinyrpc\tinycomm.h" />
-    <ClInclude Include="..\tinyrpc\tinydatatypes.h" />
-    <ClInclude Include="..\tinyrpc\tinyrpc.h" />
-    <ClInclude Include="..\tinyrpc\unique_id.h" />
+    <ClInclude Include="..\remmy\comm.h" />
+    <ClInclude Include="..\remmy\comm_asio.h" />
+    <ClInclude Include="..\remmy\comm_zmq.h" />
+    <ClInclude Include="..\remmy\concurrent_queue.h" />
+    <ClInclude Include="..\remmy\datatypes.h" />
+    <ClInclude Include="..\remmy\logging.h" />
+    <ClInclude Include="..\remmy\message.h" />
+    <ClInclude Include="..\remmy\protocol.h" />
+    <ClInclude Include="..\remmy\rpc_stub.h" />
+    <ClInclude Include="..\remmy\serialize.h" />
+    <ClInclude Include="..\remmy\set_thread_name.h" />
+    <ClInclude Include="..\remmy\remmy.h" />
+    <ClInclude Include="..\remmy\singleton.h" />
+    <ClInclude Include="..\remmy\sleeplist.h" />
+    <ClInclude Include="..\remmy\streambuffer.h" />
+    <ClInclude Include="..\remmy\unique_id.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

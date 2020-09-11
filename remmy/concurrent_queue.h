@@ -7,7 +7,7 @@
 
 #include "logging.h"
 
-namespace tinyrpc {
+namespace remmy {
 
     template<class T>
     class ConcurrentQueue {
@@ -31,7 +31,7 @@ namespace tinyrpc {
                 cv_.wait(lk);
             if (queue_.empty())
                 return false;
-            TINY_ASSERT(!queue_.empty(), "");
+            REMMY_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
             queue_.pop_front();
             cv_.notify_all();
