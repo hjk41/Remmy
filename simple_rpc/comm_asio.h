@@ -4,7 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <array>
 #include <atomic>
-#include "asio/asio/include/asio.hpp"
+#include "asio.hpp"
 #include <exception>
 #include <string>
 #include <thread>

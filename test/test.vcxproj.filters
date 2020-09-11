@@ -20,49 +20,52 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\tinyrpc\comm_asio.h">
+    <ClInclude Include="..\simple_rpc\comm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\comm_zmq.h">
+    <ClInclude Include="..\simple_rpc\comm_asio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\concurrent_queue.h">
+    <ClInclude Include="..\simple_rpc\comm_zmq.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\logging.h">
+    <ClInclude Include="..\simple_rpc\concurrent_queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\message.h">
+    <ClInclude Include="..\simple_rpc\datatypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\protocol.h">
+    <ClInclude Include="..\simple_rpc\logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\serialize.h">
+    <ClInclude Include="..\simple_rpc\message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\set_thread_name.h">
+    <ClInclude Include="..\simple_rpc\protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\singleton.h">
+    <ClInclude Include="..\simple_rpc\rpc_stub.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\sleeplist.h">
+    <ClInclude Include="..\simple_rpc\serialize.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\streambuffer.h">
+    <ClInclude Include="..\simple_rpc\set_thread_name.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\unique_id.h">
+    <ClInclude Include="..\simple_rpc\simple_rpc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\simple_rpc.h">
+    <ClInclude Include="..\simple_rpc\singleton.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\datatypes.h">
+    <ClInclude Include="..\simple_rpc\sleeplist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\comm.h">
+    <ClInclude Include="..\simple_rpc\streambuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\simple_rpc\unique_id.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
