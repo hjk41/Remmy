@@ -1,7 +1,7 @@
 USE_ASIO=1
 # USE_ZMQ=0
 
-CXXFLAGS = --std=c++14 -I../ --std=c++14 -O0 -g -fpermissive -pthread
+CXXFLAGS = --std=c++14 -I../ --std=c++14 -O3 -g -fpermissive -pthread
 LDFLAGS = -lpthread -static-libstdc++ -static-libgcc
 
 ifeq ($(USE_ASIO), 1)
