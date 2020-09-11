@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <mutex>
 
-namespace tinyrpc {
+namespace simple_rpc {
 #define TINY_LOG_INFO 0
 #define TINY_LOG_WARNING 1
 #define TINY_LOG_ERROR 2

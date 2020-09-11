@@ -19,11 +19,11 @@
 #include "protocol.h"
 #include "set_thread_name.h"
 #include "sleeplist.h"
-#include "tinycomm.h"
-#include "tinydatatypes.h"
+#include "comm.h"
+#include "datatypes.h"
 #include "unique_id.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
 
     /** A factory class used to create instances of protocols. This is an internal facility class. */
     class ProtocolFactoryBase {

@@ -5,7 +5,7 @@
 #include <string>
 #include "message.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
     enum class CommErrors {
         SUCCESS = 0,
         UNKNOWN = 1,

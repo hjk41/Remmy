@@ -12,7 +12,7 @@
 #include "logging.h"
 #include "streambuffer.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
 
 #if (defined _WIN32) || (__GNUC__ >= 5)
     template<typename T>
@@ -162,7 +162,7 @@ namespace tinyrpc {
             size_t size = vec.size();
             buf.Write(&size, sizeof(size));
             for (auto & iter : vec) {
-                tinyrpc::Serialize(buf, iter);
+                simple_rpc::Serialize(buf, iter);
             }
         }
         static void Deserialize(StreamBuffer& buf, ContainerT& vec) {
@@ -170,7 +170,7 @@ namespace tinyrpc {
             buf.Read(&size, sizeof(size));
             vec.resize(size);
             for (auto & iter : vec) {
-                tinyrpc::Deserialize(buf, iter);
+                simple_rpc::Deserialize(buf, iter);
             }             
         }
     };

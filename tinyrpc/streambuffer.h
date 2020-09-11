@@ -8,7 +8,7 @@
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "StreamBuffer"
 
-namespace tinyrpc {
+namespace simple_rpc {
     class StreamBuffer {
         const static bool SHRINK_WITH_GET = false;
         const static size_t GROW_SIZE = 1024;

@@ -2,9 +2,9 @@
 
 #include <list>
 #include "streambuffer.h"
-#include "tinydatatypes.h"
+#include "datatypes.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
 
 template<class EndPointT>
 class Message {

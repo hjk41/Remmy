@@ -20,7 +20,7 @@
 #include "serialize.h"
 #include "set_thread_name.h"
 #include "streambuffer.h"
-#include "tinycomm.h"
+#include "comm.h"
 
 namespace tinyrpc {
     class ZmqEP {

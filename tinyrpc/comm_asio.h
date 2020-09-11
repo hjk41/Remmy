@@ -16,7 +16,7 @@
 #include "serialize.h"
 #include "set_thread_name.h"
 #include "streambuffer.h"
-#include "tinycomm.h"
+#include "comm.h"
 
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "comm_asio"
@@ -33,7 +33,7 @@ namespace std {
     };
 }
 
-namespace tinyrpc {
+namespace simple_rpc {
     typedef asio::ip::tcp::endpoint AsioEP;
     typedef asio::ip::tcp::socket AsioSocket;
     typedef std::unique_ptr<AsioSocket> AsioSocketPtr;
@@ -54,15 +54,15 @@ namespace tinyrpc {
     class Serializer<AsioEP> {
     public:
         static void Serialize(StreamBuffer& buf, const AsioEP& ep) {
-            ::tinyrpc::Serialize(buf, ep.address().to_string());
-            ::tinyrpc::Serialize(buf, ep.port());
+            ::simple_rpc::Serialize(buf, ep.address().to_string());
+            ::simple_rpc::Serialize(buf, ep.port());
         }
 
         static void Deserialize(StreamBuffer& buf, AsioEP& ep) {
             std::string host;
-            ::tinyrpc::Deserialize(buf, host);
+            ::simple_rpc::Deserialize(buf, host);
             uint16_t port;
-            ::tinyrpc::Deserialize(buf, port);
+            ::simple_rpc::Deserialize(buf, port);
             ep = MakeEP<AsioEP>(host, port);
         }
     };

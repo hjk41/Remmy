@@ -7,7 +7,7 @@
 
 #include "logging.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
 
     template<class T>
     class ConcurrentQueue {

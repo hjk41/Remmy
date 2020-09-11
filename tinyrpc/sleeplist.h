@@ -7,9 +7,9 @@
 #include <set>
 #include <stdint.h>
 #include "logging.h"
-#include "tinydatatypes.h"
+#include "datatypes.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
     typedef std::lock_guard<std::mutex> LockGuard;
 
     template<class Response>

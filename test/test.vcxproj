@@ -14,19 +14,19 @@
     <ProjectGuid>{A4FD8760-9476-408A-A03B-7B138DF60FDB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>test</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -101,9 +101,9 @@
     <ClInclude Include="..\tinyrpc\singleton.h" />
     <ClInclude Include="..\tinyrpc\sleeplist.h" />
     <ClInclude Include="..\tinyrpc\streambuffer.h" />
-    <ClInclude Include="..\tinyrpc\tinycomm.h" />
-    <ClInclude Include="..\tinyrpc\tinydatatypes.h" />
-    <ClInclude Include="..\tinyrpc\tinyrpc.h" />
+    <ClInclude Include="..\tinyrpc\comm.h" />
+    <ClInclude Include="..\tinyrpc\datatypes.h" />
+    <ClInclude Include="..\tinyrpc\simple_rpc.h" />
     <ClInclude Include="..\tinyrpc\unique_id.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

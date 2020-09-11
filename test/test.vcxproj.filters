@@ -53,16 +53,16 @@
     <ClInclude Include="..\tinyrpc\streambuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinycomm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinydatatypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\tinyrpc\tinyrpc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\tinyrpc\unique_id.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tinyrpc\simple_rpc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tinyrpc\datatypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tinyrpc\comm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

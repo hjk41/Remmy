@@ -5,7 +5,7 @@
 #include "serialize.h"
 #include "streambuffer.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
     class ProtocolBase {
     public:
         virtual ~ProtocolBase() {}
