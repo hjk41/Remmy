@@ -198,7 +198,7 @@ namespace simple_rpc{
                 SenderThread();
             });
 
-            receiver_ = std::thread(&TinyCommZmq::ReceiverThread, this);
+            receiver_ = std::thread(&CommZmq::ReceiverThread, this);
         }
 
         virtual CommErrors Send(const MessagePtr& msg) override {

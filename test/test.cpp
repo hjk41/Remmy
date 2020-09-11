@@ -69,7 +69,7 @@ public:
 typedef simple_rpc::CommAsio CommT;
 typedef simple_rpc::AsioEP EP;
 #else
-typedef simple_rpc::TinyCommZmq CommT;
+typedef simple_rpc::CommZmq CommT;
 typedef simple_rpc::ZmqEP EP;
 #endif
 

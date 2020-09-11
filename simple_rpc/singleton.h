@@ -1,7 +1,7 @@
 #pragma once
 
 
-namespace TinyRPC
+namespace SimpleRPC
 {
 
 template<typename T>

@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FCA5E023-5C06-4031-AE09-9B504B335B4A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>TinyRPC</RootNamespace>
-    <ProjectName>tinyrpc</ProjectName>
+    <RootNamespace>SimpleRPC</RootNamespace>
+    <ProjectName>SimpleRPC</ProjectName>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -161,10 +161,10 @@
     <ClInclude Include="serialize.h" />
     <ClInclude Include="set_thread_name.h" />
     <ClInclude Include="streambuffer.h" />
-    <ClInclude Include="tinycomm.h" />
+    <ClInclude Include="comm.h" />
     <ClInclude Include="logging.h" />
     <ClInclude Include="sleeplist.h" />
-    <ClInclude Include="tinyrpc.h" />
+    <ClInclude Include="simple_rpc.h" />
     <ClInclude Include="unique_id.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

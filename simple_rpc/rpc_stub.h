@@ -1,7 +1,7 @@
 /**
- * \file    tinyrpc.h.
+ * \file    rpc_stub.h.
  *
- * Declares the TinyRPCStub class, which is the main entry of the library.
+ * Declares the RPCStub class, which is the main entry of the library.
  */
 #pragma once
 #include <atomic>
@@ -111,7 +111,7 @@ namespace simple_rpc {
              *  handler to call for this request. */
             uint64_t protocol_id;
 
-            /** Is this an async call? An async call in TinyRPC has no response. The caller just sends out
+            /** Is this an async call? An async call in RPC has no response. The caller just sends out
              *  the request and returns. If it needs to know the result, it must send a synchronous request
              *  or the callee must make a call so that the caller knows what happened. */
             uint32_t is_async;
@@ -171,7 +171,7 @@ namespace simple_rpc {
          * \param          timeout  (Optional) Timeout in milliseconds. 0 if no timeout.
          * \param          is_async (Optional) The response.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
         ErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
             SIMPLE_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
@@ -224,7 +224,7 @@ namespace simple_rpc {
          * \param [in,out] resp     The response.
          * \param          reqs     Request parameters.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
         template<uint64_t uid, typename ResponseT, typename... RequestTs>
         ErrorCode RpcCall(const EndPointT& ep,
@@ -278,7 +278,7 @@ namespace simple_rpc {
          * \param ep    The address of the callee.
          * \param reqs  Request parameters.
          *
-         * \return  A TinyErrorCode.
+         * \return  A ErrorCode.
          */
 		template<uint64_t uid, typename... RequestTs>
         ErrorCode RpcCallAsync(const EndPointT& ep,
