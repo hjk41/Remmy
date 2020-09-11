@@ -22,7 +22,7 @@
 #include "streambuffer.h"
 #include "comm.h"
 
-namespace simple_rpc {
+namespace remmy {
     class ZmqEP {
         mutable std::string ip_string_;
         uint16_t port_;
@@ -40,7 +40,7 @@ namespace simple_rpc {
                 if (i < 3) {
                     p = ip_string_.find('.', p);
                     if (p == ip_string_.npos) {
-                        SIMPLE_ABORT("Error parsing ip address %s", ip_string_.c_str());
+                        REMMY_ABORT("Error parsing ip address %s", ip_string_.c_str());
                     }
                     p++;
                 }
@@ -106,14 +106,14 @@ namespace simple_rpc {
 
 namespace std {
 template<>
-struct hash<simple_rpc::ZmqEP> {
-    uint64_t operator()(const simple_rpc::ZmqEP &ep) const {
+struct hash<remmy::ZmqEP> {
+    uint64_t operator()(const remmy::ZmqEP &ep) const {
         return ep.Hash();
     }
 };
 }
 
-namespace simple_rpc{
+namespace remmy{
     class CommZmq : public CommBase<ZmqEP> {
         /*
         * \brief A pool of sockets, only for single thread usage
@@ -221,7 +221,7 @@ namespace simple_rpc{
             MessagePtr msg;
             bool r = inbox_.Pop(msg);
             if (!r) {
-//                SIMPLE_WARN("Recv() killed when waiting for new messages");
+//                REMMY_WARN("Recv() killed when waiting for new messages");
             }
             return msg;
         }
@@ -231,7 +231,7 @@ namespace simple_rpc{
             ConnectionPool out_sockets_;
             MessagePtr msg;
             while (outbox_.Pop(msg)) {
-                SIMPLE_LOG("Sending message of size %llu", msg->GetStreamBuffer().GetSize());
+                REMMY_LOG("Sending message of size %llu", msg->GetStreamBuffer().GetSize());
                 // send a message through a zmq socket
                 auto& buf = msg->GetStreamBuffer();
                 // prepend my address
@@ -243,7 +243,7 @@ namespace simple_rpc{
                 buf.DetachBuf(&mem, &size);
                 zmq::socket_t& sock = out_sockets_.GetSocket(msg->GetRemoteAddr());
                 zmq::message_t zmsg(mem, size, StreamBuffer::FreeDetachedBuf);
-                SIMPLE_LOG("sending message of size %llu", zmsg.size());
+                REMMY_LOG("sending message of size %llu", zmsg.size());
                 sock.send(zmsg);
             }
         }
@@ -261,12 +261,12 @@ namespace simple_rpc{
                     // TODO: avoid memory copy
                     zmq::message_t zmsg;
                     in_socket_.recv(&zmsg);
-                    SIMPLE_LOG("received message of size %llu", zmsg.size());
+                    REMMY_LOG("received message of size %llu", zmsg.size());
 
                     const char* data = (const char*)zmsg.data();
                     uint64_t psize = *(uint64_t*)data;
                     data += sizeof(psize);
-                    SIMPLE_ASSERT(psize == zmsg.size(),
+                    REMMY_ASSERT(psize == zmsg.size(),
                         "Unexpected package size: expected %llu, got %llu",
                         psize,
                         zmsg.size());
@@ -279,7 +279,7 @@ namespace simple_rpc{
                     msg->GetStreamBuffer().SetBuf(buf, data_size);
                     bool r = inbox_.Push(msg);
                     if (!r) {
-                        SIMPLE_WARN("RecvMsg() interruptted when trying to push message");
+                        REMMY_WARN("RecvMsg() interruptted when trying to push message");
                         break;
                     }
                 }

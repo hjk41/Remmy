@@ -1,6 +1,6 @@
 #pragma once
 
-namespace simple_rpc
+namespace remmy
 {
     enum class ErrorCode
     {

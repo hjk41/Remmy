@@ -23,7 +23,7 @@
 #include "datatypes.h"
 #include "unique_id.h"
 
-namespace simple_rpc {
+namespace remmy {
 
     /** A factory class used to create instances of protocols. This is an internal facility class. */
     class ProtocolFactoryBase {
@@ -137,7 +137,7 @@ namespace simple_rpc {
                     while (!exit_now_) {
                         MessagePtr msg = comm_->Recv();
                         if (msg == nullptr) {
-                            SIMPLE_LOG("RPC worker %d exiting", i);
+                            REMMY_LOG("RPC worker %d exiting", i);
                             return;
                         }
                         HandleMessage(msg);
@@ -174,7 +174,7 @@ namespace simple_rpc {
          * \return  A ErrorCode.
          */
         ErrorCode RpcCall(const EndPointT & ep, ProtocolBase & protocol, uint64_t timeout = 0, bool is_async = false) {
-            SIMPLE_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
@@ -182,7 +182,7 @@ namespace simple_rpc {
             header.protocol_id = protocol.UniqueId();
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
             Serialize(message->GetStreamBuffer(), header);
-            SIMPLE_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             protocol.MarshallRequest(message->GetStreamBuffer());
             // send message
             message->SetRemoteAddr(ep);
@@ -194,7 +194,7 @@ namespace simple_rpc {
                 }
                 CommErrors err = comm_->Send(message);
                 if (err != CommErrors::SUCCESS) {
-                    SIMPLE_WARN("error during rpc_call-send: %d", err);
+                    REMMY_WARN("error during rpc_call-send: %d", err);
                     sleeping_list_.RemoveEvent(header.seq_num);
                     return ErrorCode::FAIL_SEND;
                 }
@@ -231,7 +231,7 @@ namespace simple_rpc {
             uint64_t timeout,
             ResponseT& resp,
             const RequestTs&... reqs) {
-            SIMPLE_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             bool is_async = false;
             MessagePtr message(new MessageType);
             // write header
@@ -240,7 +240,7 @@ namespace simple_rpc {
             header.protocol_id = uid;
             header.is_async = is_async ? RPC_ASYNC : RPC_SYNC;
             Serialize(message->GetStreamBuffer(), header);
-            SIMPLE_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
             message->SetRemoteAddr(ep);
@@ -252,7 +252,7 @@ namespace simple_rpc {
             }
             CommErrors err = comm_->Send(message);
             if (err != CommErrors::SUCCESS) {
-                SIMPLE_WARN("error during rpc_call-send: %d", err);
+                REMMY_WARN("error during rpc_call-send: %d", err);
                 sleeping_list_.RemoveEvent(header.seq_num);
                 return ErrorCode::FAIL_SEND;
             }
@@ -283,7 +283,7 @@ namespace simple_rpc {
 		template<uint64_t uid, typename... RequestTs>
         ErrorCode RpcCallAsync(const EndPointT& ep,
 			const RequestTs&... reqs) {
-            SIMPLE_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
+            REMMY_ASSERT(serving_, "RPCStub::StartServing() must be called before RpcCall");
             MessagePtr message(new MessageType);
             // write header
             MessageHeader header;
@@ -291,7 +291,7 @@ namespace simple_rpc {
             header.protocol_id = uid;
             header.is_async = true;
             Serialize(message->GetStreamBuffer(), header);
-            SIMPLE_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Calling rpc, seq=%lld, pid=%d, async=%d", header.seq_num, header.protocol_id, header.is_async);
             SerializeVariadic(message->GetStreamBuffer(), reqs...);
             // send message
             message->SetRemoteAddr(ep);
@@ -315,9 +315,9 @@ namespace simple_rpc {
             uint64_t UID = ProtocolT().UniqueId();
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                SIMPLE_ABORT("Duplicate protocol id detected: %d for %s. "
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
                            "Did you registered the same protocol multiple times?",
-                           UID, DecodeUniqueId(UID).c_str());
+                            UID, DecodeUniqueId(UID).c_str());
             }
             protocol_factory_[UID] =
                 ProtocolFactoryItem(new ProtocolFactory<ProtocolT>(), server, nullptr);
@@ -339,9 +339,9 @@ namespace simple_rpc {
             using CallbackT = std::function<ResponseT(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                SIMPLE_ABORT("Duplicate protocol id detected: %d for %s. "
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
                            "Did you registered the same protocol multiple times?",
-                           UID, DecodeUniqueId(UID).c_str());
+                            UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
@@ -365,9 +365,9 @@ namespace simple_rpc {
             using CallbackT = std::function<void(RequestTs&...)>;
             if (protocol_factory_.find(UID) != protocol_factory_.end()) {
                 // ID() should be unique, and should not be re-registered
-                SIMPLE_ABORT("Duplicate protocol id detected: %d for %s. "
+                REMMY_ABORT("Duplicate protocol id detected: %d for %s. "
                            "Did you registered the same protocol multiple times?",
-                           UID, DecodeUniqueId(UID).c_str());
+                            UID, DecodeUniqueId(UID).c_str());
             }
             CallbackT* fp = new CallbackT(func);
             protocol_factory_[UID] =
@@ -409,8 +409,8 @@ namespace simple_rpc {
          */
         void HandleMessage(MessagePtr& msg) {
             if (msg->GetStatus() != ErrorCode::SUCCESS) {
-                SIMPLE_WARN("RPC get a message of communication failure of machine %s, status=%d",
-                          EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
+                REMMY_WARN("RPC get a message of communication failure of machine %s, status=%d",
+                           EPToString(msg->GetRemoteAddr()).c_str(), msg->GetStatus());
                 const EndPointT & ep = msg->GetRemoteAddr();
                 std::set<int64_t> events;
                 {
@@ -430,8 +430,8 @@ namespace simple_rpc {
 
             MessageHeader header;
             Deserialize(msg->GetStreamBuffer(), header);
-            SIMPLE_LOG("Handle message, seq=%lld, pid=%d, async=%d",
-                header.seq_num, header.protocol_id, header.is_async);
+            REMMY_LOG("Handle message, seq=%lld, pid=%d, async=%d",
+                      header.seq_num, header.protocol_id, header.is_async);
 
             if (header.seq_num < 0) {
                 // negative seq number indicates a response to a sync rpc call
@@ -441,28 +441,28 @@ namespace simple_rpc {
                     // null protocol indicates this request already timedout and removed
                     // so we don't need to get the response or signal the thread
                     protocol->UnmarshallResponse(msg->GetStreamBuffer());
-                    SIMPLE_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
+                    REMMY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
                         "Error unmarshalling response of protocol %s: "
                         "%llu bytes are left unread",
-                        DecodeUniqueId(protocol->UniqueId()).c_str(),
-                        msg->GetStreamBuffer().GetSize());
+                                 DecodeUniqueId(protocol->UniqueId()).c_str(),
+                                 msg->GetStreamBuffer().GetSize());
                     sleeping_list_.SignalResponse(header.seq_num);
                 }
             }
             else {
                 // positive seq number indicates a request
                 if (protocol_factory_.find(header.protocol_id) == protocol_factory_.end()) {
-                    SIMPLE_ABORT("Unsupported protocol from %s, protocol ID=%d",
-                               EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
+                    REMMY_ABORT("Unsupported protocol from %s, protocol ID=%d",
+                                EPToString(msg->GetRemoteAddr()).c_str(), header.protocol_id);
                     return;
                 }
                 ProtocolBase* protocol =
                     protocol_factory_[header.protocol_id].factory->CreateProtocol();
                 protocol->UnmarshallRequest(msg->GetStreamBuffer());
-                SIMPLE_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
-                    "Error unmarshalling request of protocol %s: %llu bytes are left unread",
-                    DecodeUniqueId(protocol->UniqueId()).c_str(),
-                    msg->GetStreamBuffer().GetSize());
+                REMMY_ASSERT(msg->GetStreamBuffer().GetSize() == 0,
+                             "Error unmarshalling request of protocol %s: %llu bytes are left unread",
+                             DecodeUniqueId(protocol->UniqueId()).c_str(),
+                             msg->GetStreamBuffer().GetSize());
                 protocol->HandleRequest(protocol_factory_[header.protocol_id].handler);
                 // send response if sync call
                 if (!header.is_async) {
@@ -471,8 +471,8 @@ namespace simple_rpc {
                     Serialize(out_message->GetStreamBuffer(), header);
                     protocol->MarshallResponse(out_message->GetStreamBuffer());
                     out_message->SetRemoteAddr(msg->GetRemoteAddr());
-                    SIMPLE_LOG("responding to %s with seq=%d, protocol_id=%d\n",
-                        EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
+                    REMMY_LOG("responding to %s with seq=%d, protocol_id=%d\n",
+                              EPToString(out_message->GetRemoteAddr()).c_str(), header.seq_num, header.protocol_id);
                     comm_->Send(out_message);
                 }
                 delete protocol;

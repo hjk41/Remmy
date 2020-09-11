@@ -5,7 +5,7 @@
 #include "serialize.h"
 #include "streambuffer.h"
 
-namespace simple_rpc {
+namespace remmy {
     class ProtocolBase {
     public:
         virtual ~ProtocolBase() {}

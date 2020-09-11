@@ -20,52 +20,52 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\simple_rpc\comm.h">
+    <ClInclude Include="..\remmy\comm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\comm_asio.h">
+    <ClInclude Include="..\remmy\comm_asio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\comm_zmq.h">
+    <ClInclude Include="..\remmy\comm_zmq.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\concurrent_queue.h">
+    <ClInclude Include="..\remmy\concurrent_queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\datatypes.h">
+    <ClInclude Include="..\remmy\datatypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\logging.h">
+    <ClInclude Include="..\remmy\logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\message.h">
+    <ClInclude Include="..\remmy\message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\protocol.h">
+    <ClInclude Include="..\remmy\protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\rpc_stub.h">
+    <ClInclude Include="..\remmy\rpc_stub.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\serialize.h">
+    <ClInclude Include="..\remmy\serialize.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\set_thread_name.h">
+    <ClInclude Include="..\remmy\set_thread_name.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\simple_rpc.h">
+    <ClInclude Include="..\remmy\remmy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\singleton.h">
+    <ClInclude Include="..\remmy\singleton.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\sleeplist.h">
+    <ClInclude Include="..\remmy\sleeplist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\streambuffer.h">
+    <ClInclude Include="..\remmy\streambuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\simple_rpc\unique_id.h">
+    <ClInclude Include="..\remmy\unique_id.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

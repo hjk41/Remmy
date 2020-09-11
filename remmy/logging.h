@@ -7,13 +7,13 @@
 #include <assert.h>
 #include <mutex>
 
-namespace simple_rpc {
-#define SIMPLE_LOG_INFO 0
-#define SIMPLE_LOG_WARNING 1
-#define SIMPLE_LOG_ERROR 2
-#define SIMPLE_LOG_ASSERT 3
+namespace remmy {
+#define REMMY_LOG_INFO 0
+#define REMMY_LOG_WARNING 1
+#define REMMY_LOG_ERROR 2
+#define REMMY_LOG_ASSERT 3
 
-#define SIMPLE_LOG_LEVEL 1
+#define REMMY_LOG_LEVEL 1
 
     inline std::mutex& __Log_Lock__() {
         static std::mutex log_lock;
@@ -33,7 +33,7 @@ namespace simple_rpc {
         va_list args;
 #ifdef PRINT_COMPONENT
         switch (level) {
-        case SIMPLE_LOG_INFO:
+        case REMMY_LOG_INFO:
             fprintf(stdout, "OctopusLog[%s][%s:%d]: ", component, filename, lineNum);
             break;
         case LOG_WARNING:
@@ -45,13 +45,13 @@ namespace simple_rpc {
         }
 #else
         switch (level) {
-        case SIMPLE_LOG_INFO:
-            fprintf(stdout, "SIMPLE_LOG[%s:%d]: ", filename, lineNum);
+        case REMMY_LOG_INFO:
+            fprintf(stdout, "REMMY_LOG[%s:%d]: ", filename, lineNum);
             break;
-        case SIMPLE_LOG_WARNING:
-            fprintf(stdout, "SIMPLE_WARN[%s:%d]: ", filename, lineNum);
+        case REMMY_LOG_WARNING:
+            fprintf(stdout, "REMMY_WARN[%s:%d]: ", filename, lineNum);
             break;
-        case SIMPLE_LOG_ERROR:
+        case REMMY_LOG_ERROR:
             fprintf(stdout, "Err[%s:%d]: ", filename, lineNum);
             break;
         }
@@ -61,7 +61,7 @@ namespace simple_rpc {
         va_end(args);
         fprintf(stdout, "\n");
         fflush(stdout);
-        if (level == SIMPLE_LOG_ERROR) {
+        if (level == REMMY_LOG_ERROR) {
             std::exit(-1);
         }
     }
@@ -69,34 +69,34 @@ namespace simple_rpc {
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "common"
 
-#if (SIMPLE_LOG_INFO >= SIMPLE_LOG_LEVEL)
-#define SIMPLE_LOG(format, ...) \
-    do{ SimpleLogger(SIMPLE_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (REMMY_LOG_INFO >= REMMY_LOG_LEVEL)
+#define REMMY_LOG(format, ...) \
+    do{ SimpleLogger(REMMY_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, REMMY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define SIMPLE_LOG(...)
+#define REMMY_LOG(...)
 #endif
 
-#if (SIMPLE_LOG_WARNING >= SIMPLE_LOG_LEVEL)
-#define SIMPLE_WARN(format, ...) \
-    do{ SimpleLogger(SIMPLE_LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (REMMY_LOG_WARNING >= REMMY_LOG_LEVEL)
+#define REMMY_WARN(format, ...) \
+    do{ SimpleLogger(REMMY_LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, REMMY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define SIMPLE_WARN(...)
+#define REMMY_WARN(...)
 #endif
 
-#if (SIMPLE_LOG_ERROR >= SIMPLE_LOG_LEVEL)
-#define SIMPLE_ABORT(format, ...) \
-    do{ SimpleLogger(SIMPLE_LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (REMMY_LOG_ERROR >= REMMY_LOG_LEVEL)
+#define REMMY_ABORT(format, ...) \
+    do{ SimpleLogger(REMMY_LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), REMMY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define SIMPLE_ABORT(...) SIMPLE_ABORT();
+#define REMMY_ABORT(...) REMMY_ABORT();
 #endif
 
-#if (SIMPLE_LOG_ASSERT >= SIMPLE_LOG_LEVEL)
-#define SIMPLE_ASSERT(pred, format, ...) \
-    do{ if (!(pred)) SIMPLE_ABORT((format), ##__VA_ARGS__); } while (0)
+#if (REMMY_LOG_ASSERT >= REMMY_LOG_LEVEL)
+#define REMMY_ASSERT(pred, format, ...) \
+    do{ if (!(pred)) REMMY_ABORT((format), ##__VA_ARGS__); } while (0)
 #else
-#define SIMPLE_ASSERT(...)
+#define REMMY_ASSERT(...)
 #endif
 
 #define SIMPLE_SUICIDE(format, ...) \
-    do{ SimpleLogger(SIMPLE_LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
+    do{ SimpleLogger(REMMY_LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), REMMY_LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
 };

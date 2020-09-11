@@ -14,7 +14,7 @@
     <ProjectGuid>{A4FD8760-9476-408A-A03B-7B138DF60FDB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>test</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -90,22 +90,22 @@
     <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\simple_rpc\comm.h" />
-    <ClInclude Include="..\simple_rpc\comm_asio.h" />
-    <ClInclude Include="..\simple_rpc\comm_zmq.h" />
-    <ClInclude Include="..\simple_rpc\concurrent_queue.h" />
-    <ClInclude Include="..\simple_rpc\datatypes.h" />
-    <ClInclude Include="..\simple_rpc\logging.h" />
-    <ClInclude Include="..\simple_rpc\message.h" />
-    <ClInclude Include="..\simple_rpc\protocol.h" />
-    <ClInclude Include="..\simple_rpc\rpc_stub.h" />
-    <ClInclude Include="..\simple_rpc\serialize.h" />
-    <ClInclude Include="..\simple_rpc\set_thread_name.h" />
-    <ClInclude Include="..\simple_rpc\simple_rpc.h" />
-    <ClInclude Include="..\simple_rpc\singleton.h" />
-    <ClInclude Include="..\simple_rpc\sleeplist.h" />
-    <ClInclude Include="..\simple_rpc\streambuffer.h" />
-    <ClInclude Include="..\simple_rpc\unique_id.h" />
+    <ClInclude Include="..\remmy\comm.h" />
+    <ClInclude Include="..\remmy\comm_asio.h" />
+    <ClInclude Include="..\remmy\comm_zmq.h" />
+    <ClInclude Include="..\remmy\concurrent_queue.h" />
+    <ClInclude Include="..\remmy\datatypes.h" />
+    <ClInclude Include="..\remmy\logging.h" />
+    <ClInclude Include="..\remmy\message.h" />
+    <ClInclude Include="..\remmy\protocol.h" />
+    <ClInclude Include="..\remmy\rpc_stub.h" />
+    <ClInclude Include="..\remmy\serialize.h" />
+    <ClInclude Include="..\remmy\set_thread_name.h" />
+    <ClInclude Include="..\remmy\remmy.h" />
+    <ClInclude Include="..\remmy\singleton.h" />
+    <ClInclude Include="..\remmy\sleeplist.h" />
+    <ClInclude Include="..\remmy\streambuffer.h" />
+    <ClInclude Include="..\remmy\unique_id.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

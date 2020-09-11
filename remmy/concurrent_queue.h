@@ -7,7 +7,7 @@
 
 #include "logging.h"
 
-namespace simple_rpc {
+namespace remmy {
 
     template<class T>
     class ConcurrentQueue {
@@ -31,7 +31,7 @@ namespace simple_rpc {
                 cv_.wait(lk);
             if (queue_.empty())
                 return false;
-            SIMPLE_ASSERT(!queue_.empty(), "");
+            REMMY_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
             queue_.pop_front();
             cv_.notify_all();

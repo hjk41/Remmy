@@ -4,7 +4,7 @@
 #include "streambuffer.h"
 #include "datatypes.h"
 
-namespace simple_rpc {
+namespace remmy {
 
 template<class EndPointT>
 class Message {

@@ -43,7 +43,7 @@ public:
         // note that the handler can be executed by multiple threads at the same time,
         // we need to make it thread-safe
         s->fetch_add(resp);
-        SIMPLE_WARN("Server is now %lu", s->load());
+        REMMY_WARN("Server is now %lu", s->load());
     }
 };
 
