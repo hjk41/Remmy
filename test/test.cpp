@@ -94,7 +94,7 @@ int main(int argc, char ** argv) {
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
         [](int x, int y) -> int { return x*y; });
     // now register with the protocol-based interface
-    std::atomic<size_t> size = 0;
+    std::atomic<size_t> size(0);
     rpc.RegisterProtocol<RPC_Protocol>(&size);
     // now start serving
     rpc.StartServing();
