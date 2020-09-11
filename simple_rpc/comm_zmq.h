@@ -22,7 +22,7 @@
 #include "streambuffer.h"
 #include "comm.h"
 
-namespace tinyrpc {
+namespace simple_rpc {
     class ZmqEP {
         mutable std::string ip_string_;
         uint16_t port_;
@@ -40,7 +40,7 @@ namespace tinyrpc {
                 if (i < 3) {
                     p = ip_string_.find('.', p);
                     if (p == ip_string_.npos) {
-                        TINY_ABORT("Error parsing ip address %s", ip_string_.c_str());
+                        SIMPLE_ABORT("Error parsing ip address %s", ip_string_.c_str());
                     }
                     p++;
                 }
@@ -106,15 +106,15 @@ namespace tinyrpc {
 
 namespace std {
 template<>
-struct hash<tinyrpc::ZmqEP> {
-    uint64_t operator()(const tinyrpc::ZmqEP &ep) const {
+struct hash<simple_rpc::ZmqEP> {
+    uint64_t operator()(const simple_rpc::ZmqEP &ep) const {
         return ep.Hash();
     }
 };
 }
 
-namespace tinyrpc{
-    class TinyCommZmq : public TinyCommBase<ZmqEP> {
+namespace simple_rpc{
+    class CommZmq : public CommBase<ZmqEP> {
         /*
         * \brief A pool of sockets, only for single thread usage
         */
@@ -152,7 +152,7 @@ namespace tinyrpc{
         };
 
     public:
-        TinyCommZmq(const std::string& ip, int port = 0, int queue_size = 10)
+        CommZmq(const std::string& ip, int port = 0, int queue_size = 10)
             : my_ep_(ip, port),
             context_(),
             in_socket_(context_, ZMQ_DEALER),
@@ -176,7 +176,7 @@ namespace tinyrpc{
             printf("socket is bound at port %d\n",my_ep_.Port());
         }
 
-        virtual ~TinyCommZmq() {
+        virtual ~CommZmq() {
             kill_ = true;
             inbox_.SignalForKill();
             outbox_.SignalForKill();
@@ -221,7 +221,7 @@ namespace tinyrpc{
             MessagePtr msg;
             bool r = inbox_.Pop(msg);
             if (!r) {
-//                TINY_WARN("Recv() killed when waiting for new messages");
+//                SIMPLE_WARN("Recv() killed when waiting for new messages");
             }
             return msg;
         }
@@ -231,7 +231,7 @@ namespace tinyrpc{
             ConnectionPool out_sockets_;
             MessagePtr msg;
             while (outbox_.Pop(msg)) {
-                TINY_LOG("Sending message of size %llu", msg->GetStreamBuffer().GetSize());
+                SIMPLE_LOG("Sending message of size %llu", msg->GetStreamBuffer().GetSize());
                 // send a message through a zmq socket
                 auto& buf = msg->GetStreamBuffer();
                 // prepend my address
@@ -243,7 +243,7 @@ namespace tinyrpc{
                 buf.DetachBuf(&mem, &size);
                 zmq::socket_t& sock = out_sockets_.GetSocket(msg->GetRemoteAddr());
                 zmq::message_t zmsg(mem, size, StreamBuffer::FreeDetachedBuf);
-                TINY_LOG("sending message of size %llu", zmsg.size());
+                SIMPLE_LOG("sending message of size %llu", zmsg.size());
                 sock.send(zmsg);
             }
         }
@@ -257,16 +257,16 @@ namespace tinyrpc{
                 zmq_poll(items, 1, 1000);
                 if (items[0].revents & ZMQ_POLLIN) {
                     MessagePtr msg(new MessageType);
-                    msg->SetStatus(TinyErrorCode::SUCCESS);
+                    msg->SetStatus(ErrorCode::SUCCESS);
                     // TODO: avoid memory copy
                     zmq::message_t zmsg;
                     in_socket_.recv(&zmsg);
-                    TINY_LOG("received message of size %llu", zmsg.size());
+                    SIMPLE_LOG("received message of size %llu", zmsg.size());
 
                     const char* data = (const char*)zmsg.data();
                     uint64_t psize = *(uint64_t*)data;
                     data += sizeof(psize);
-                    TINY_ASSERT(psize == zmsg.size(),
+                    SIMPLE_ASSERT(psize == zmsg.size(),
                         "Unexpected package size: expected %llu, got %llu",
                         psize,
                         zmsg.size());
@@ -279,7 +279,7 @@ namespace tinyrpc{
                     msg->GetStreamBuffer().SetBuf(buf, data_size);
                     bool r = inbox_.Push(msg);
                     if (!r) {
-                        TINY_WARN("RecvMsg() interruptted when trying to push message");
+                        SIMPLE_WARN("RecvMsg() interruptted when trying to push message");
                         break;
                     }
                 }

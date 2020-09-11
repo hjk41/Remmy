@@ -43,7 +43,7 @@ public:
         // note that the handler can be executed by multiple threads at the same time,
         // we need to make it thread-safe
         s->fetch_add(resp);
-        TINY_WARN("Server is now %lu", s->load());
+        SIMPLE_WARN("Server is now %lu", s->load());
     }
 };
 
@@ -71,7 +71,7 @@ Everyone is welcome to contribute to this project, either to improve the code or
 
 The whole library can be divided into these parts:
 
-* tinyrpc.h: contains TinyRPCStub class, which is the entry point
+* tinyrpc.h: contains RPCStub class, which is the entry point
 
 * serialize.h: implements the Serializer template class
 

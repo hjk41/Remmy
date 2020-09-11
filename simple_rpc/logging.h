@@ -8,24 +8,24 @@
 #include <mutex>
 
 namespace simple_rpc {
-#define TINY_LOG_INFO 0
-#define TINY_LOG_WARNING 1
-#define TINY_LOG_ERROR 2
-#define TINY_LOG_ASSERT 3
+#define SIMPLE_LOG_INFO 0
+#define SIMPLE_LOG_WARNING 1
+#define SIMPLE_LOG_ERROR 2
+#define SIMPLE_LOG_ASSERT 3
 
-#define TINY_LOG_LEVEL 1
+#define SIMPLE_LOG_LEVEL 1
 
     inline std::mutex& __Log_Lock__() {
         static std::mutex log_lock;
         return log_lock;
     }
 
-    inline void OctopusLog(int level,
-        const char * component,
-        const char * filename,
-        int lineNum,
-        int enabled_level,
-        const char * format, ...) {
+    inline void SimpleLogger(int level,
+                             const char *component,
+                             const char *filename,
+                             int lineNum,
+                             int enabled_level,
+                             const char *format, ...) {
         if (level < enabled_level) {
             return;
         }
@@ -33,7 +33,7 @@ namespace simple_rpc {
         va_list args;
 #ifdef PRINT_COMPONENT
         switch (level) {
-        case TINY_LOG_INFO:
+        case SIMPLE_LOG_INFO:
             fprintf(stdout, "OctopusLog[%s][%s:%d]: ", component, filename, lineNum);
             break;
         case LOG_WARNING:
@@ -45,13 +45,13 @@ namespace simple_rpc {
         }
 #else
         switch (level) {
-        case TINY_LOG_INFO:
-            fprintf(stdout, "TINY_LOG[%s:%d]: ", filename, lineNum);
+        case SIMPLE_LOG_INFO:
+            fprintf(stdout, "SIMPLE_LOG[%s:%d]: ", filename, lineNum);
             break;
-        case TINY_LOG_WARNING:
-            fprintf(stdout, "TINY_WARN[%s:%d]: ", filename, lineNum);
+        case SIMPLE_LOG_WARNING:
+            fprintf(stdout, "SIMPLE_WARN[%s:%d]: ", filename, lineNum);
             break;
-        case TINY_LOG_ERROR:
+        case SIMPLE_LOG_ERROR:
             fprintf(stdout, "Err[%s:%d]: ", filename, lineNum);
             break;
         }
@@ -61,7 +61,7 @@ namespace simple_rpc {
         va_end(args);
         fprintf(stdout, "\n");
         fflush(stdout);
-        if (level == TINY_LOG_ERROR) {
+        if (level == SIMPLE_LOG_ERROR) {
             std::exit(-1);
         }
     }
@@ -69,34 +69,34 @@ namespace simple_rpc {
 #undef LOGGING_COMPONENT
 #define LOGGING_COMPONENT "common"
 
-#if (TINY_LOG_INFO >= TINY_LOG_LEVEL)
-#define TINY_LOG(format, ...) \
-    do{ OctopusLog(TINY_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (SIMPLE_LOG_INFO >= SIMPLE_LOG_LEVEL)
+#define SIMPLE_LOG(format, ...) \
+    do{ SimpleLogger(SIMPLE_LOG_INFO, LOGGING_COMPONENT, __FILE__, __LINE__, SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define TINY_LOG(...) 
+#define SIMPLE_LOG(...)
 #endif
 
-#if (TINY_LOG_WARNING >= TINY_LOG_LEVEL)
-#define TINY_WARN(format, ...) \
-    do{ OctopusLog(TINY_LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (SIMPLE_LOG_WARNING >= SIMPLE_LOG_LEVEL)
+#define SIMPLE_WARN(format, ...) \
+    do{ SimpleLogger(SIMPLE_LOG_WARNING, LOGGING_COMPONENT, __FILE__, __LINE__, SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define TINY_WARN(...)
+#define SIMPLE_WARN(...)
 #endif
 
-#if (TINY_LOG_ERROR >= TINY_LOG_LEVEL)
-#define TINY_ABORT(format, ...) \
-    do{ OctopusLog(TINY_LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), TINY_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
+#if (SIMPLE_LOG_ERROR >= SIMPLE_LOG_LEVEL)
+#define SIMPLE_ABORT(format, ...) \
+    do{ SimpleLogger(SIMPLE_LOG_ERROR, (LOGGING_COMPONENT), (__FILE__), (__LINE__), SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); } while (0)
 #else
-#define TINY_ABORT(...) TINY_ABORT();
+#define SIMPLE_ABORT(...) SIMPLE_ABORT();
 #endif
 
-#if (TINY_LOG_ASSERT >= TINY_LOG_LEVEL)
-#define TINY_ASSERT(pred, format, ...) \
-    do{ if (!(pred)) TINY_ABORT((format), ##__VA_ARGS__); } while (0)
+#if (SIMPLE_LOG_ASSERT >= SIMPLE_LOG_LEVEL)
+#define SIMPLE_ASSERT(pred, format, ...) \
+    do{ if (!(pred)) SIMPLE_ABORT((format), ##__VA_ARGS__); } while (0)
 #else
-#define TINY_ASSERT(...) 
+#define SIMPLE_ASSERT(...)
 #endif
 
-#define TINY_SUICIDE(format, ...) \
-    do{ OctopusLog(TINY_LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), TINY_LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
+#define SIMPLE_SUICIDE(format, ...) \
+    do{ SimpleLogger(SIMPLE_LOG_WARNING, (LOGGING_COMPONENT), (__FILE__), (__LINE__), SIMPLE_LOG_LEVEL, (format), ##__VA_ARGS__); exit(0); } while (0)
 };

@@ -83,7 +83,7 @@ namespace simple_rpc {
         }
     };
 
-    class TinyCommAsio : public TinyCommBase<AsioEP>
+    class CommAsio : public CommBase<AsioEP>
     {
         const static size_t HEAD_SIZE = sizeof(PKG_MAGIC_HEAD) + sizeof(uint64_t);
         typedef decltype(PKG_MAGIC_HEAD) MagicNum;
@@ -114,7 +114,7 @@ namespace simple_rpc {
         * \param port: if not 0, the communicator will wait for connections on this
         *              port. Otherwise, communicator will not accept any connections.
         */
-        TinyCommAsio(std::string host, int port = 0)
+        CommAsio(std::string host, int port = 0)
             : started_(false),
               host_(host),
             port_(port),
@@ -129,11 +129,11 @@ namespace simple_rpc {
                 port_ = acceptor_->local_endpoint().port();
             }
             catch (std::exception & e) {
-                TINY_ABORT("error binding to port %d: %s", port_, e.what());
+                SIMPLE_ABORT("error binding to port %d: %s", port_, e.what());
             }
         }
 
-        virtual ~TinyCommAsio() {
+        virtual ~CommAsio() {
             {
                 LockGuard l(sockets_lock_);
                 exit_now_ = true;
@@ -141,11 +141,11 @@ namespace simple_rpc {
             if (acceptor_) {
                 acceptor_->close();
             }
-            TINY_LOG("asio accepting thread exit");
+            SIMPLE_LOG("asio accepting thread exit");
             io_service_.stop();
             for (int i = 0; i < NUM_WORKERS; i++) {
                 workers_[i].join();
-                TINY_LOG("asio worker thread %d exit", i);
+                SIMPLE_LOG("asio worker thread %d exit", i);
             }
             SignalHandlerThreadsToExit();
         };
@@ -171,7 +171,7 @@ namespace simple_rpc {
                         io_service_.run();
                     }
                     catch (std::exception & e) {
-                        TINY_WARN("asio worker %d hit an exception and has to exit: %s", e.what());
+                        SIMPLE_WARN("asio worker %d hit an exception and has to exit: %s", e.what());
                         return;
                     }
                 });
@@ -189,7 +189,7 @@ namespace simple_rpc {
             try {
                 socket = GetSocket(msg->GetRemoteAddr());
                 if (socket == nullptr) {
-                    TINY_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
+                    SIMPLE_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
                     return CommErrors::SEND_ERROR;
                 }
                 LockGuard sl(socket->lock);
@@ -197,7 +197,7 @@ namespace simple_rpc {
                     asio::buffer(msg->GetStreamBuffer().GetBuf(), msg->GetStreamBuffer().GetSize()));
             }
             catch (std::exception & e) {
-                TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
+                SIMPLE_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
                 asio::error_code err;
                 if (socket) {
                     HandleFailureWithEc(socket, err);
@@ -220,12 +220,12 @@ namespace simple_rpc {
             try {
                 socket = GetSocket(msg->GetRemoteAddr());
                 if (socket == nullptr) {
-                    TINY_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
+                    SIMPLE_ASSERT(exit_now_, "socket is null, but exit_now_ is not");
                     return;
                 }
             }
             catch (std::exception & e) {
-                TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
+                SIMPLE_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), e.what());
                 asio::error_code err;
                 if (socket) {
                     HandleFailureWithEc(socket, err);
@@ -239,7 +239,8 @@ namespace simple_rpc {
                     if (callback) callback(msg, error ? CommErrors::SEND_ERROR : CommErrors::SUCCESS);
                     // unlock the socket
                     if (error) {
-                        TINY_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(), error.message());
+                        SIMPLE_WARN("error sending message to %s : %s", ToString(msg->GetRemoteAddr()).c_str(),
+                                  error.message());
                         HandleFailureWithEc(socket, error);
                     }
                 }
@@ -269,7 +270,7 @@ namespace simple_rpc {
             try {
                 if (error) {
                     if (error.value() != asio::error::operation_aborted) {
-                        TINY_WARN("Error accepting connection: %s", error.message().c_str());
+                        SIMPLE_WARN("Error accepting connection: %s", error.message().c_str());
                     }
                     return;
                 }
@@ -277,7 +278,7 @@ namespace simple_rpc {
                     return;
                 }
                 const AsioEP & remote = sock->remote_endpoint();
-                TINY_LOG("new client connected: %s", EPToString(remote).c_str());
+                SIMPLE_LOG("new client connected: %s", EPToString(remote).c_str());
                 LockGuard l(sockets_lock_);
                 if (exit_now_) {
                     return;
@@ -287,7 +288,7 @@ namespace simple_rpc {
                     socket = SocketBuffersPtr(new SocketBuffers());
                 }
                 LockGuard l2(socket->lock);
-                TINY_ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
+                SIMPLE_ASSERT(socket->sock == nullptr, "this socket seems to have connected: %s", EPToString(remote).c_str());
                 if (socket->sock == nullptr) {
                     socket->sock = sock.release();
                 }
@@ -302,7 +303,7 @@ namespace simple_rpc {
                 if (exit_now_) {
                     return;
                 }
-                TINY_ABORT("error occurred: %s", e.what());
+                SIMPLE_ABORT("error occurred: %s", e.what());
             }
             PostAsyncAccept();
         }
@@ -312,7 +313,7 @@ namespace simple_rpc {
             try {
                 void * buf = socket->receive_buffer.GetWritableBuf();
                 size_t size = socket->receive_buffer.GetWritableSize();
-                TINY_ASSERT(buf != nullptr && size != 0, "no buf space left, buf=%p, size=%llu", buf, size);
+                SIMPLE_ASSERT(buf != nullptr && size != 0, "no buf space left, buf=%p, size=%llu", buf, size);
                 socket->sock->async_read_some(asio::buffer(buf, size),
                     [this, socket](const asio::error_code& ec, std::size_t bytes_transferred)
                 {
@@ -324,7 +325,7 @@ namespace simple_rpc {
                 {
                     return;
                 }
-                TINY_ABORT("hit an exception: %s", e.what());
+                SIMPLE_ABORT("hit an exception: %s", e.what());
             }
         }
 
@@ -335,7 +336,7 @@ namespace simple_rpc {
                     void * buf = socket->receive_buffer.GetWritableBuf();
                     size_t writable_size = socket->receive_buffer.GetWritableSize();
                     size_t bytes_to_read = package_size - socket->receive_buffer.GetReceivedBytes();
-                    TINY_ASSERT(buf != nullptr && writable_size >= bytes_to_read,
+                    SIMPLE_ASSERT(buf != nullptr && writable_size >= bytes_to_read,
                         "no buf space left, buf=%p, size=%llu", buf, writable_size);
                     size_t bytes = socket->sock->receive(asio::buffer(buf, writable_size));
                     socket->receive_buffer.MarkReceiveBytes(bytes);
@@ -347,14 +348,14 @@ namespace simple_rpc {
                 if (exit_now_) {
                     return;
                 }
-                TINY_WARN("read error from %s:%d, trying to handle failure...",
-                    socket->target.address().to_string().c_str(), socket->target.port());
+                SIMPLE_WARN("read error from %s:%d, trying to handle failure...",
+                          socket->target.address().to_string().c_str(), socket->target.port());
                 HandleFailure(socket, e.what());
             }
         }
 
         void SealMessageNoLock(SocketBuffersPtr socket, size_t package_size) {
-            TINY_LOG("A complete packet is received, size=%lld", package_size);
+            SIMPLE_LOG("A complete packet is received, size=%lld", package_size);
             // have received the whole message, pack it into MessagePtr and start receiving next one
             MessagePtr message(new MessageType);
             message->SetRemoteAddr(socket->target);
@@ -363,7 +364,7 @@ namespace simple_rpc {
             char header[HEAD_SIZE];
             // remove the header
             message->GetStreamBuffer().Read(header, HEAD_SIZE);
-            message->SetStatus(TinyErrorCode::SUCCESS);
+            message->SetStatus(ErrorCode::SUCCESS);
             receive_queue_.Push(message);
         }
 
@@ -371,15 +372,15 @@ namespace simple_rpc {
             if (exit_now_)
                 return;
             if (ec) {
-                TINY_WARN("read error from %s:%d. received_bytes=%llu trying to handle failture...",
-                    socket->target.address().to_string().c_str(), socket->target.port(), bytes_transferred);
+                SIMPLE_WARN("read error from %s:%d. received_bytes=%llu trying to handle failture...",
+                          socket->target.address().to_string().c_str(), socket->target.port(), bytes_transferred);
                 HandleFailureWithEc(socket, ec);
             }
             else {
                 bool need_post_read = true;
                 LockGuard sl(socket->lock);
                 const AsioEP & remote = socket->sock->remote_endpoint();
-                TINY_LOG("received %llu bytes from socket", bytes_transferred);
+                SIMPLE_LOG("received %llu bytes from socket", bytes_transferred);
                 socket->receive_buffer.MarkReceiveBytes(bytes_transferred);
                 size_t bytes_received_total = socket->receive_buffer.GetReceivedBytes();
                 // the first four bytes is the magic number
@@ -398,7 +399,7 @@ namespace simple_rpc {
                     // package size includes the size of the header
                     uint64_t package_size = *(uint64_t*)(buf + sizeof(MagicNum));
                     if (package_size > (size_t)16 * 1024 * 1024 * 1024) {
-                        TINY_WARN("alarmingly large package_size: %lld", package_size);
+                        SIMPLE_WARN("alarmingly large package_size: %lld", package_size);
                     }
                     if (bytes_received_total < package_size) {
                         if (socket->receive_buffer.Size() < package_size) {
@@ -426,13 +427,13 @@ namespace simple_rpc {
                             uint64_t package_start = 0;
                             uint64_t bytes_left = bytes_received_total;
                             while (true) {
-                                TINY_LOG("A complete packet is received, size=%lld", package_size);
+                                SIMPLE_LOG("A complete packet is received, size=%lld", package_size);
                                 char * package_buf = new char[package_size - HEAD_SIZE];
                                 memcpy(package_buf, received_buf + package_start + HEAD_SIZE, package_size - HEAD_SIZE);
                                 MessagePtr message(new MessageType);
                                 message->SetRemoteAddr(socket->target);
                                 message->GetStreamBuffer().SetBuf(package_buf, package_size - HEAD_SIZE);
-                                message->SetStatus(TinyErrorCode::SUCCESS);
+                                message->SetStatus(ErrorCode::SUCCESS);
                                 receive_queue_.Push(message);
                                 package_start += package_size;
                                 bytes_left -= package_size;
@@ -451,7 +452,7 @@ namespace simple_rpc {
                                         return;
                                     }
                                     package_size = *(uint64_t*)(received_buf + package_start + sizeof(MagicNum));
-                                    TINY_ASSERT(package_start < bytes_received_total, "something is really wrong");
+                                    SIMPLE_ASSERT(package_start < bytes_received_total, "something is really wrong");
                                     if (bytes_left < package_size) {
                                         // partial package
                                         socket->receive_buffer.Compact(package_start);
@@ -472,7 +473,7 @@ namespace simple_rpc {
         }
 
         void HandleFailure(SocketBuffersPtr socket, const std::string& msg) {
-            TINY_WARN("a network failure occurred, error=%s", msg.c_str());
+            SIMPLE_WARN("a network failure occurred, error=%s", msg.c_str());
             LockGuard l(sockets_lock_);
             LockGuard sl(socket->lock);
             if (exit_now_)
@@ -480,7 +481,7 @@ namespace simple_rpc {
             if (socket->sock != nullptr) {
                 // notify failure by sending a special message
                 MessagePtr message(new MessageType);
-                message->SetStatus(TinyErrorCode::SERVER_FAIL);
+                message->SetStatus(ErrorCode::SERVER_FAIL);
                 message->SetRemoteAddr(socket->target);
                 receive_queue_.Push(message);
             }
@@ -488,7 +489,7 @@ namespace simple_rpc {
             if (it != sockets_.end() && it->second == socket) {
                 sockets_.erase(it);
             }
-            TINY_LOG("socket closed, now number of sockets becomes %llu", sockets_.size());
+            SIMPLE_LOG("socket closed, now number of sockets becomes %llu", sockets_.size());
         }
 
         SocketBuffersPtr GetSocket(const AsioEP & remote) {
@@ -513,11 +514,11 @@ namespace simple_rpc {
                             return nullptr;
                         }
                         if (sleep_second > 20) {
-                            TINY_WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string().c_str(),
+                            SIMPLE_WARN("error connecting to server %s:%d, msg: %s", remote.address().to_string().c_str(),
                                       remote.port(), e.what());
                             throw e;
                         }
-                        TINY_LOG("Wait connecting to server %s:%d, msg: %s", remote.address().to_string().c_str(),
+                        SIMPLE_LOG("Wait connecting to server %s:%d, msg: %s", remote.address().to_string().c_str(),
                                   remote.port(), e.what());
                         std::this_thread::sleep_for(std::chrono::seconds(sleep_second));
                         sleep_second *= 2;
@@ -526,9 +527,9 @@ namespace simple_rpc {
                     break;
                 }
                 socket->sock = sock;
-                TINY_LOG("connected to server: %s:%d", remote.address().to_string().c_str(), remote.port());
+                SIMPLE_LOG("connected to server: %s:%d", remote.address().to_string().c_str(), remote.port());
                 // when we have a null socket, the sending buffer and receiving buffer must be empty
-                TINY_ASSERT(socket->receive_buffer.GetReceivedBytes() == 0,
+                SIMPLE_ASSERT(socket->receive_buffer.GetReceivedBytes() == 0,
                     "unexpected non-empty receive buffer");
                 // now, post a async read
                 socket->receive_buffer.Resize(RECEIVE_BUFFER_SIZE);

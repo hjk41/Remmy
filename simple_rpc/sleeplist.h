@@ -31,7 +31,7 @@ namespace simple_rpc {
         void AddEvent(int64_t event, Response * r) {
             LockGuard l(lock_);
             ResponseSignaled *& rs = event_map_[event];
-            TINY_ASSERT(rs == nullptr, "event already registered");
+            SIMPLE_ASSERT(rs == nullptr, "event already registered");
             rs = new ResponseSignaled();
             rs->response = r;
         }
@@ -47,11 +47,11 @@ namespace simple_rpc {
         /// <param name="event">The sequence id of the request.</param>
         /// <param name="timeout">The timeout in milliseconds, default 0 indicats infinity.</param>
         /// <returns>error code</returns>
-        TinyErrorCode WaitForResponse(int64_t event, uint64_t timeout = 0) {
+        ErrorCode WaitForResponse(int64_t event, uint64_t timeout = 0) {
             std::unique_lock<std::mutex> l(lock_);
-            TinyErrorCode ret = TinyErrorCode::SUCCESS;
+            ErrorCode ret = ErrorCode::SUCCESS;
             ResponseSignaled * rs = event_map_[event];
-            TINY_ASSERT(rs->response != nullptr, "null response pointer");
+            SIMPLE_ASSERT(rs->response != nullptr, "null response pointer");
             if (!rs->received) {
                 bool out_of_time = false;
                 if (timeout == 0) {
@@ -66,10 +66,10 @@ namespace simple_rpc {
                     }
                 }
                 if (out_of_time) {
-                    ret = TinyErrorCode::TIMEOUT;
+                    ret = ErrorCode::TIMEOUT;
                 }
                 else if (rs->server_failure) {
-                    ret = TinyErrorCode::SERVER_FAIL;
+                    ret = ErrorCode::SERVER_FAIL;
                 }
             }
             

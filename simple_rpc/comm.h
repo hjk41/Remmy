@@ -23,13 +23,13 @@ namespace simple_rpc {
      * \tparam EndPointT    Type of the address. You can use IP:host as in ASIO, or integer as in MPI.
      */
     template<class EndPointT>
-    class TinyCommBase {
+    class CommBase {
     public:
         typedef Message<EndPointT> MessageType;
         typedef std::shared_ptr<MessageType> MessagePtr;
 
-        TinyCommBase(){};
-        virtual ~TinyCommBase(){};
+        CommBase(){};
+        virtual ~CommBase(){};
 
         /** start polling for messages */
         virtual void Start()=0;

@@ -2,7 +2,7 @@
 
 namespace simple_rpc
 {
-    enum class TinyErrorCode
+    enum class ErrorCode
     {
         SUCCESS = 0,
         FAIL_SEND = 1,

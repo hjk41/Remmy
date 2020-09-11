@@ -7,12 +7,7 @@
 #include <vector>
 using namespace std;
 
-#include "simple_rpc/comm_zmq.h"
-#include "simple_rpc/message.h"
-#include "simple_rpc/streambuffer.h"
 #include "simple_rpc/simple_rpc.h"
-#include "simple_rpc/unique_id.h"
-#include "simple_rpc/comm_asio.h"
 using namespace simple_rpc;
 
 struct ComplexType {
@@ -66,12 +61,12 @@ public:
         // note that the handler can be executed by multiple threads at the same time,
         // we need to make it thread-safe
         s->fetch_add(resp);
-        TINY_WARN("Server is now %lu", s->load());
+        SIMPLE_WARN("Server is now %lu", s->load());
     }
 };
 
 #if USE_ASIO
-typedef simple_rpc::TinyCommAsio CommT;
+typedef simple_rpc::CommAsio CommT;
 typedef simple_rpc::AsioEP EP;
 #else
 typedef simple_rpc::TinyCommZmq CommT;
@@ -84,13 +79,13 @@ int main(int argc, char ** argv) {
     // create a server
     int port = 4444;
     CommT comm("127.0.0.1", port);
-    simple_rpc::TinyRPCStub<EP> rpc(&comm, 1);
+    simple_rpc::RPCStub<EP> rpc(&comm, 1);
     // Register protocols the server provides
     // Template parameters: Response type, Request Type1, Request Type2...
     // The UniqueId() function returns compile-time determined uint64_t given a string.
     // It is a convinient way of getting unique ids for different rpcs.
     rpc.RegisterAsyncHandler<ADD_OP, int, int>(
-        [](int x, int y) { TINY_LOG("Received ADD(%d, %d)", x, y); });
+        [](int x, int y) { SIMPLE_LOG("Received ADD(%d, %d)", x, y); });
     rpc.RegisterSyncHandler<MUL_OP, int, int, int>(
         [](int x, int y) -> int { return x*y; });
     // now register with the protocol-based interface
@@ -109,17 +104,17 @@ int main(int argc, char ** argv) {
 
     // test rpc calls
     for(int i = 0; i < 1000; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
-    simple_rpc::TinyErrorCode ec;
+    simple_rpc::ErrorCode ec;
     for (int i = 0; i < 1024; i++) {
         int x = rand(), y = rand();
         int r = 0;
         ec = rpc.RpcCall<MUL_OP>(ep, 0, r, x, y);
-        if (ec != simple_rpc::TinyErrorCode::SUCCESS) {
+        if (ec != simple_rpc::ErrorCode::SUCCESS) {
             cout << "error occurred when making sync call: " << (int)ec << endl;
         }
         else {
             //cout << x << " * " << y << " = " << r << endl;
-            TINY_ASSERT(x * y == r, "wrong result!");
+            SIMPLE_ASSERT(x * y == r, "wrong result!");
         }
     }
 
@@ -129,7 +124,7 @@ int main(int argc, char ** argv) {
     proto.req.y = 1.0;
     proto.req.z = "12345";
     ec = rpc.RpcCall(ep, proto);
-    if (ec != simple_rpc::TinyErrorCode::SUCCESS) {
+    if (ec != simple_rpc::ErrorCode::SUCCESS) {
         cout << "error occurred when making sync call: " << (int)ec << endl;
     }
     else {
@@ -138,7 +133,7 @@ int main(int argc, char ** argv) {
 
     proto.req.x = 3;
     ec = rpc.RpcCall(ep, proto);
-    if (ec != simple_rpc::TinyErrorCode::SUCCESS) {
+    if (ec != simple_rpc::ErrorCode::SUCCESS) {
         cout << "error occurred when making sync call: " << (int)ec << endl;
     }
     else {

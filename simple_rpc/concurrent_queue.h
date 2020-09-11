@@ -31,7 +31,7 @@ namespace simple_rpc {
                 cv_.wait(lk);
             if (queue_.empty())
                 return false;
-            TINY_ASSERT(!queue_.empty(), "");
+            SIMPLE_ASSERT(!queue_.empty(), "");
             rv = queue_.front();
             queue_.pop_front();
             cv_.notify_all();

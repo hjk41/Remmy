@@ -27,7 +27,7 @@ namespace simple_rpc {
             ppos_(0) {}
 
         void InitOstream() {
-            TINY_ASSERT(buf_ == nullptr, "trying to init a already-initialized buffer");
+            SIMPLE_ASSERT(buf_ == nullptr, "trying to init a already-initialized buffer");
             buf_ = (char*)malloc(RESERVED_HEADER_SPACE * 2);
             const_buf_ = false;
             pend_ = RESERVED_HEADER_SPACE * 2;
@@ -76,7 +76,7 @@ namespace simple_rpc {
         void DetachBuf(void** buf, size_t* size) {
             *size = GetSize();
             if (const_buf_) {
-                TINY_WARN("Detaching a constant stream buffer will result in a memory copy");
+                SIMPLE_WARN("Detaching a constant stream buffer will result in a memory copy");
                 void* new_buf = malloc(GetSize() + sizeof(void*));
                 *buf = new_buf;
                 *(void**)(new_buf) = new_buf;
@@ -126,17 +126,17 @@ namespace simple_rpc {
         }
 
         void Write(const void * buf, size_t size) {
-            TINY_ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
+            SIMPLE_ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
             if (buf_ == nullptr) {
                 InitOstream();
             }
             size_t new_size = size + ppos_;
             if (new_size > pend_) {
                 // reallocate buffer
-                TINY_LOG("buffer is full, reallocating. pend_ = %d, new_size = %d", pend_, new_size);
+                SIMPLE_LOG("buffer is full, reallocating. pend_ = %d, new_size = %d", pend_, new_size);
                 new_size = std::max(new_size, ppos_ + GROW_SIZE);
                 char * new_buf = (char *)realloc(buf_, new_size);
-                TINY_ASSERT(new_buf, "realloc failed");
+                SIMPLE_ASSERT(new_buf, "realloc failed");
                 buf_ = new_buf;
                 pend_ = new_size;
             }
@@ -145,14 +145,14 @@ namespace simple_rpc {
         }
 
         void Read(void * buf, size_t size) {
-            TINY_ASSERT(gpos_ + size <= ppos_,
+            SIMPLE_ASSERT(gpos_ + size <= ppos_,
                 "reading beyond the array: required size = %d, actual size = %d", size, ppos_ - gpos_);
             memcpy(buf, buf_ + gpos_, size);
             gpos_ += size;
             if (gpos_ > GROW_SIZE && SHRINK_WITH_GET && !const_buf_) {
                 memmove(buf_, buf_ + gpos_, ppos_ - gpos_);
                 char * new_buf = (char *)realloc(buf_, pend_ - gpos_);
-                TINY_ASSERT(new_buf, "realloc failed");
+                SIMPLE_ASSERT(new_buf, "realloc failed");
                 buf_ = new_buf;
                 pend_ -= gpos_;
                 ppos_ -= gpos_;
@@ -167,13 +167,14 @@ namespace simple_rpc {
         }
 
         void WriteHead(const char * buf, size_t size) {
-            TINY_ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
+            SIMPLE_ASSERT(!const_buf_, "writing into a const buffer is not allowed.");
             if (gpos_ < size) {
                 // this should rarely happen, since we already have 64-byte reserved
-                TINY_WARN("reallocating due to write_head, possible performance loss. gpos_ = %d, size = %d", gpos_, size);
+                SIMPLE_WARN("reallocating due to write_head, possible performance loss. gpos_ = %d, size = %d", gpos_,
+                          size);
                 size_t new_size = std::max(size + ppos_, ppos_ + RESERVED_HEADER_SPACE);
                 char * new_buf = (char *)malloc(new_size);
-                TINY_ASSERT(new_buf, "realloc failed");
+                SIMPLE_ASSERT(new_buf, "realloc failed");
                 // copy existing contents to the new buffer
                 size_t new_gpos = new_size - (ppos_ - gpos_);
                 memcpy(new_buf + new_gpos, buf_ + gpos_, ppos_ - gpos_);
@@ -196,7 +197,7 @@ namespace simple_rpc {
         size_t gpos_;   // start of get
         size_t ppos_;   // start of put
         
-        friend class TinyCommAsio;
+        friend class CommAsio;
     };
 
     class ResizableBuffer {
@@ -217,7 +218,7 @@ namespace simple_rpc {
 
         void Resize(size_t size) {
             void * newbuf = realloc(buf_, size);
-            TINY_ASSERT(newbuf != nullptr, "realloc failed, original size=%lld, target size=%lld", size_, size);
+            SIMPLE_ASSERT(newbuf != nullptr, "realloc failed, original size=%lld, target size=%lld", size_, size);
             buf_ = newbuf;
             size_ = size;
         }
@@ -260,7 +261,7 @@ namespace simple_rpc {
 
         // move the contents to the beginning of the buf
         void Compact(uint64_t offset) {
-            TINY_ASSERT(offset <= received_bytes_, 
+            SIMPLE_ASSERT(offset <= received_bytes_, 
                 "compacting beyond received bytes: offset = %lld, received_bytes = %lld",
                 offset, received_bytes_);
             received_bytes_ -= offset;
