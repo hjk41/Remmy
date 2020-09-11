@@ -103,9 +103,9 @@ int main(int argc, char ** argv) {
     #endif
 
     // test rpc calls
-    for(int i = 0; i < 1000; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
+    for(int i = 0; i < 1; i++) rpc.RpcCallAsync<ADD_OP>(ep, 1, 2);
     remmy::ErrorCode ec;
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < 1; i++) {
         int x = rand(), y = rand();
         int r = 0;
         ec = rpc.RpcCall<MUL_OP>(ep, 0, r, x, y);

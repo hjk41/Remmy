@@ -54,7 +54,7 @@ namespace remmy {
     }
 
     inline void SetThreadName(const char * threadName, int threadId) {
-        std::string str = "RPC worker " + std::to_string(threadId);
+        std::string str = std::string(threadName) + std::to_string(threadId);
         SetThreadName(str.c_str());
     }
     #endif
