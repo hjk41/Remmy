@@ -1,7 +1,7 @@
 SimpleRPC
 =======
 
-SimpleRPC is a simple but usable RPC library. Due to the structual simplicity of the code, it is sutable for use in education as well.
+SimpleRPC is a simple but usable RPC library. Thanks to the structual simplicity of the code, it is sutable for use in education as well.
 
 The communication layer can be implemented with any network library. Currently, we suport ASIO and ZeroMQ as the network layer.
 
