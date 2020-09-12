@@ -9,6 +9,47 @@ Current implementation uses C++14, so you need a new compiler to compile the cod
 
 Tested on both Linux and Windows (Visual Studio 2019).
 
+
+Compiling Test
+=======
+
+test/test.cpp is a simple test demonstrating how to use Remmy. You can compile it with `CMake`, `make`, or `Visual Studio`.
+
+**Compiling With CMake**
+
+To compile with `CMake`, use the following command:
+```bash
+user@myhost:~/projects/Remmy$ mkdir build
+user@myhost:~/projects/Remmy$ cd build
+user@myhost:~/projects/Remmy/build$ cmake .. -DCOMM_LAYER=ASIO
+-- The C compiler identification is GNU 7.4.0
+-- The CXX compiler identification is GNU 7.4.0
+-- ...
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/user/projects/Remmy/build
+user@myhost:~/projects/Remmy/build$ make
+Scanning dependencies of target remmy_test
+[ 50%] Building CXX object CMakeFiles/remmy_test.dir/test/test.cpp.o
+[100%] Linking CXX executable remmy_test
+[100%] Built target remmy_test
+```
+
+Note that we use `-DCOMM_LAYER=ASIO` option for `CMake` here. Remmy supports ASIO and ZMQ. Here we choose ASIO as the communication layer.
+
+If you want to use ZeroMQ, you also need to install libzmq.
+
+**Compiling With `make`**
+
+There is a Makefile under `Remmy/test`, which can be used to compile the test. The communication can be switched by defining the `USE_ASIO` or `USE_ZMQ` at the top of the Makefile.
+
+**Building With VS 2017/2019**
+
+`Remmy/remmy.sln` is a VS 2019 solution file. You can use VS 2019 to open the solution and compile the test project. However, if you choose to use VS 2017, you need to retarget the solution before you can build it. To retarget the solution, open it and right-click on the `Solution 'Remmy'` in `Solution Explorer`, then choose `Retarget Solution`. In the pop-up windows, choose `latest installed version` for `Windows SDK Version`.
+
+By default the solution uses ASIO as the communication layer. Switching to ZeroMQ requires defining `USE_ZMQ` and `USE_ASIO` macros in project properties. You will also need to specify the location to ZeroMQ library when using ZeroMQ.
+
+
 Programming interface
 =======
 
@@ -64,6 +105,7 @@ public:
 ```
 
 Please refer to [/test/test.cpp](/test/test.cpp) for an example on how to use Remmy.
+
 
 Contributing
 =======

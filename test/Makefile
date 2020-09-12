@@ -13,7 +13,7 @@ ifeq ($(USE_ZMQ), 1)
 	LDFLAGS += -lzmq -L../deps/zmq
 endif
 
-test: test.cpp ../remmy/*.h Makefile
+remmy_test: test.cpp ../remmy/*.h Makefile
 	g++ test.cpp -o test $(CXXFLAGS) $(LDFLAGS)
 
 clean:
