@@ -13,7 +13,7 @@ namespace remmy {
 #define REMMY_LOG_ERROR 2
 #define REMMY_LOG_ASSERT 3
 
-#define REMMY_LOG_LEVEL 0
+#define REMMY_LOG_LEVEL 1
 
     inline std::mutex& __Log_Lock__() {
         static std::mutex log_lock;
